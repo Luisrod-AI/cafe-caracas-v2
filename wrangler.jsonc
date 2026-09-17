@@ -33,6 +33,18 @@
     },
   ],
 
+  // Cloudflare Images, used by OpenNext to actually transform `/_next/image`.
+  //
+  // Without this binding the optimiser is not disabled — it is BYPASSED: it
+  // logs `env.IMAGES binding is not defined` and streams the original bytes
+  // back untouched, so every `w=` served the full-size file and `q=` did
+  // nothing. The request still answers 200, which is why it looked healthy.
+  //
+  // The binding name is fixed: OpenNext reads `env.IMAGES` literally.
+  "images": {
+    "binding": "IMAGES",
+  },
+
   "observability": {
     "enabled": true,
   },
