@@ -71,12 +71,6 @@ export async function storagePlugins(): Promise<Plugin[]> {
         media: true,
       },
       enabled: Boolean(bucket),
-      /**
-       * Keeps the collection schema identical whether or not R2 is active, so a
-       * document written locally and one written on Cloudflare have the same
-       * shape. Without it the prefix field appears only in one environment.
-       */
-      alwaysInsertFields: true,
     }),
   ]
 }
