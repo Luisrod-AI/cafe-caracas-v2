@@ -102,6 +102,17 @@ export default {
         },
       },
       fontFamily: {
+        /**
+         * The Caracas Café prototype typefaces.
+         *
+         * They live here rather than in the `@theme` block of globals.css
+         * because this file is loaded through `@config`, and a JS config that
+         * declares `fontFamily` takes over the whole `font-*` namespace — any
+         * `--font-*` added in `@theme` is then silently dropped, and the
+         * utility renders as the inherited family with no error anywhere.
+         */
+        'cc-display': ['var(--font-cc-playfair)', 'Georgia', 'serif'],
+        'cc-sans': ['var(--font-cc-inter)', 'system-ui', 'sans-serif'],
         mono: ['var(--font-geist-mono)'],
         sans: ['var(--font-geist-sans)'],
       },

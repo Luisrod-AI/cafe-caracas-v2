@@ -2,6 +2,8 @@ import { getCloudflareContext } from '@opennextjs/cloudflare'
 import { r2Storage } from '@payloadcms/storage-r2'
 import type { Plugin } from 'payload'
 
+import { isWorkersRuntime } from './logger'
+
 /**
  * Where uploaded files go.
  *
@@ -19,41 +21,86 @@ import type { Plugin } from 'payload'
 /** Read off the plugin's own options so an upgrade cannot silently drift. */
 type R2Bucket = Parameters<typeof r2Storage>[0]['bucket']
 
+/**
+ * Bindings via Wrangler's platform proxy, for everything that is not the
+ * deployed Worker: `next build`, `next dev`, and the `payload` CLI.
+ *
+ * The import specifier is assembled at runtime instead of written literally so
+ * that bundlers leave it alone. A literal `import('wrangler')` would drag the
+ * entire CLI — and its Node-only dependencies — into the Worker bundle and fail
+ * the build. Same trick the official Payload Cloudflare template uses.
+ */
+function getContextFromWrangler(): Promise<{ env: Record<string, unknown> }> {
+  return import(/* webpackIgnore: true */ `${'__wrangler'.replaceAll('_', '')}`).then(
+    ({ getPlatformProxy }) =>
+      getPlatformProxy({
+        environment: process.env.CLOUDFLARE_ENV,
+        // Reach the REAL bucket, so `generate:importmap` and any migration see
+        // exactly what the deployed Worker will see.
+        remoteBindings: true,
+      }),
+  )
+}
+
 async function findR2Bucket(): Promise<R2Bucket | null> {
   try {
-    const { env } = await getCloudflareContext({ async: true })
-    const bucket = (env as Record<string, unknown>).R2
+    /**
+     * Two ways to reach the same bindings, chosen by asking the RUNTIME what it
+     * is — not by reading `NODE_ENV`.
+     *
+     * That distinction cost a deploy. `NODE_ENV` is `production` during
+     * `next build` too, so keying on it sent the build down the Worker-only
+     * path, where `getCloudflareContext` resolves to nothing. R2 came out
+     * disabled, the upload endpoint was never registered, and every other check
+     * still looked green — the only symptom was a 404 on
+     * `/api/storage-r2-multi-part-upload`.
+     *
+     * `isWorkersRuntime` asks workerd directly, so it cannot be wrong about
+     * where the code is actually executing.
+     */
+    const { env } = isWorkersRuntime
+      ? await getCloudflareContext({ async: true })
+      : await getContextFromWrangler()
 
-    return (bucket as R2Bucket | undefined) ?? null
-  } catch {
-    // No Cloudflare context — a plain `next dev` run. Disk storage stands.
+    const bucket = (env as Record<string, unknown>)?.R2
+
+    if (!bucket) {
+      console.warn(
+        `[storage] No R2 binding found (workerd=${isWorkersRuntime}). ` +
+          'Uploads fall back to the filesystem, which does not exist on Workers.',
+      )
+      return null
+    }
+
+    return bucket as R2Bucket
+  } catch (error) {
+    // Loud on purpose: swallowing this is what hid a disabled R2 in production.
+    console.warn(
+      `[storage] Could not read Cloudflare bindings (workerd=${isWorkersRuntime}):`,
+      error instanceof Error ? error.message : error,
+    )
     return null
   }
 }
 
 /**
- * The storage plugins, with R2 switched on only when a bucket is bound.
+ * The storage plugins: R2 when a bucket is bound, local disk otherwise.
  *
- * ⚠️ The plugin is ALWAYS in the array, even with no bucket. Do not "optimise"
- * this back into a conditional — that is a bug that blanks the entire admin
- * panel with no error in production, and this is why:
+ * ⚠️ The import map is generated from THIS list at build time.
  *
- * `r2Storage` registers an admin component, `R2ClientUploadHandler`.
- * `payload generate:importmap` discovers components by walking the config at
- * BUILD time, and the import map it writes is the only way the admin can
- * resolve a component at RUNTIME. Building locally — where no R2 binding
- * exists — left the plugin out of the config, so the component never reached
- * the import map. On Cloudflare the binding does exist, the plugin activates,
- * Payload looks the component up, does not find it, and renders nothing:
+ * `r2Storage` registers an admin component, `R2ClientUploadHandler`, and
+ * `payload generate:importmap` discovers components by walking the config —
+ * which is the only way the admin can resolve one at runtime. So the import map
+ * must be generated in an environment where the plugin is present, or the admin
+ * fails at runtime with:
  *
  *   getFromImportMap: PayloadComponent not found in importMap
- *   key: @payloadcms/storage-r2/client#R2ClientUploadHandler
  *
- * The failure surfaces only in the browser console, and only on the environment
- * that was not the one used to generate the map.
- *
- * So: registration is static, activation is dynamic. `enabled` is the switch
- * the plugin provides for exactly this.
+ * In practice that is handled: `next.config.ts` calls
+ * `initOpenNextCloudflareForDev()`, which exposes a simulated R2 binding
+ * locally, so `pnpm generate:importmap` sees the plugin and writes the entry.
+ * If that ever stops being true, generate the map with the binding available
+ * rather than making registration unconditional.
  */
 export async function storagePlugins(): Promise<Plugin[]> {
   const bucket = await findR2Bucket()
@@ -61,16 +108,64 @@ export async function storagePlugins(): Promise<Plugin[]> {
   return [
     r2Storage({
       /**
-       * Never read while `enabled` is false. The cast exists because the option
-       * is typed as required — the plugin has no "no bucket yet" shape, and the
-       * alternative is leaving it out of the config entirely, which is the bug
-       * described above.
+       * Never read while `enabled` is false. The option is typed as required,
+       * and the plugin has no "not configured yet" shape.
        */
       bucket: (bucket ?? {}) as R2Bucket,
       collections: {
         media: true,
       },
-      enabled: Boolean(bucket),
+      /**
+       * Registration is static, activation is dynamic — the distinction is the
+       * whole point.
+       *
+       * R2 turns on ONLY inside workerd. Everywhere else uploads stay on disk in
+       * the Media collection's `staticDir`, which is the same split the database
+       * makes: a local file while you develop, the remote service in production.
+       *
+       * The workerd check is not redundant with the bucket check. Wrangler's
+       * proxy hands the build and the CLI the REAL bucket on purpose — that is
+       * what lets `generate:importmap` see this plugin — so "a bucket exists"
+       * is true locally too. Without the runtime check, `pnpm dev` would write
+       * straight into the production bucket.
+       *
+       * The plugin itself stays in the array either way: the import map is
+       * generated from this list, and a conditionally-registered plugin is
+       * missing from the map in exactly the environment that needs it.
+       */
+      enabled: isWorkersRuntime && Boolean(bucket),
+      /**
+       * The browser slices the file and uploads it in 5 MB parts.
+       *
+       * Correcting what an earlier version of this comment claimed: the file
+       * does NOT bypass the Worker. Every part is POSTed to
+       * `/api/storage-r2-multi-part-upload`, which is a Worker endpoint. What
+       * changes is the SHAPE of the traffic — many bounded requests instead of
+       * one unbounded body — so a large file cannot hit the Worker's request
+       * body ceiling or spend its whole CPU budget in a single invocation.
+       *
+       * It is also what registers that endpoint at all, which is the only
+       * externally observable proof that R2 is active: without it the plugin
+       * can be enabled and there is no way to tell from outside.
+       *
+       * ⚠️ REQUIRES patches/@payloadcms__storage-r2@3.89.0.patch.
+       *
+       * Upstream 3.89.0 cannot run this feature at all. `r2Storage` calls
+       * `initClientUploads` without `extraClientHandlerProps`, so the admin
+       * provider is mounted with `extra: undefined` — and
+       * `R2ClientUploadHandler` destructures `extra: { chunkSize = ... }` on its
+       * first line. Destructuring a property off `undefined` throws:
+       *
+       *   TypeError: Cannot read properties of undefined (reading 'chunkSize')
+       *
+       * It throws before the first `fetch`, so the network tab stays empty and
+       * the admin shows only a toast. The patch defaults `extra` to `{}`.
+       *
+       * This is invisible in development because `enabled` is false outside
+       * workerd, so the handler is never registered and uploads take the plain
+       * server path. The bug can only appear in production.
+       */
+      clientUploads: true,
     }),
   ]
 }

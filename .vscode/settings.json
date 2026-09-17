@@ -1,6 +1,17 @@
 {
-  "js/ts.tsdk.path": "node_modules/typescript/lib",
-  "js/ts.tsdk.promptToUseWorkspaceVersion": true,
+  // The workspace TypeScript, not the one bundled with VS Code.
+  //
+  // These two keys were previously written as "js/ts.tsdk.path" and
+  // "js/ts.tsdk.promptToUseWorkspaceVersion", which VS Code does not recognise.
+  // Unknown keys are ignored silently, so the editor kept falling back to its
+  // own TypeScript while the file looked correctly configured.
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+
+  // Resolve imports against the workspace root, matching the `paths` aliases
+  // in tsconfig.json rather than rewriting them to relative paths on save.
+  "typescript.preferences.importModuleSpecifier": "non-relative",
+
   "editor.codeActionsOnSave": {
     "source.fixAll": "explicit",
     "source.organizeImports": "explicit",

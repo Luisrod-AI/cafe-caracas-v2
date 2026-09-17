@@ -40,6 +40,41 @@ const nextConfig: NextConfig = {
           protocol: url.protocol.replace(':', '') as 'http' | 'https',
         }
       }),
+      {
+        /**
+         * Photography for the /cafe-caracas prototype page, served from the
+         * original static mock-up.
+         *
+         * TEMPORARY. It is scoped to the exact asset path rather than the whole
+         * host so it cannot quietly become a general-purpose image proxy, and
+         * it disappears the day those photos become Media documents.
+         */
+        hostname: 'luisrod-ai.github.io',
+        pathname: '/cafe-caracas/assets/**',
+        protocol: 'https',
+      },
+      /**
+       * Menu photos, which the source sheet stores on Google Drive.
+       *
+       * Two entries rather than one `/**` because those are the only two paths
+       * the data actually uses — 295 `/thumbnail` and 56 `/uc`. Opening the
+       * whole host would turn our image optimiser into a general-purpose proxy
+       * for anything on Drive.
+       *
+       * Also TEMPORARY: these become Media documents alongside the café photos.
+       * Until then every menu thumbnail is fetched and re-encoded by the Worker,
+       * which costs a request and some CPU per image.
+       */
+      {
+        hostname: 'drive.google.com',
+        pathname: '/thumbnail',
+        protocol: 'https',
+      },
+      {
+        hostname: 'drive.google.com',
+        pathname: '/uc',
+        protocol: 'https',
+      },
     ],
   },
   reactStrictMode: true,
@@ -81,6 +116,17 @@ const nextConfig: NextConfig = {
       // Patterns must match FILES only. A trailing `/**` also matches nested
       // directories, and the tracer then tries to read one as a file and dies
       // with "Is a directory (os error 21)".
+      //
+      // Both layouts are covered on purpose: `node_modules/<pkg>` is the flat
+      // one produced by `nodeLinker: hoisted`, and `node_modules/.pnpm/...` is
+      // pnpm's nested default. Listing only one silently stops matching the day
+      // the install strategy changes, and the build still succeeds — the
+      // failure appears later as "module not found on the file system".
+      './node_modules/@libsql/isomorphic-ws/*.mjs',
+      './node_modules/@libsql/isomorphic-ws/*.cjs',
+      './node_modules/jose/**/*.js',
+      './node_modules/jose/**/*.mjs',
+      './node_modules/jose/**/*.cjs',
       './node_modules/.pnpm/@libsql+isomorphic-ws@*/node_modules/@libsql/isomorphic-ws/*.mjs',
       './node_modules/.pnpm/@libsql+isomorphic-ws@*/node_modules/@libsql/isomorphic-ws/*.cjs',
       './node_modules/.pnpm/jose@*/node_modules/jose/**/*.js',

@@ -45,6 +45,46 @@
   --breakpoint-2xl: 86rem;
   --font-mono: var(--font-geist-mono);
   --font-sans: var(--font-geist-sans);
+
+  /* ── Caracas Café design tokens ───────────────────────────────────────────
+   *
+   * Lifted from the static prototype at luisrod-ai.github.io/cafe-caracas by
+   * reading COMPUTED styles off the live page, not by reading its stylesheet.
+   * That stylesheet is ~12.5k lines with dozens of overrides for the same
+   * selector, so the cascade — not the source — is what actually produces the
+   * design. Measured values are the only ones that reproduce it.
+   *
+   * Named by role rather than by hue, so that swapping a colour later does not
+   * leave a component called `bg-cc-cream` rendering something brown.
+   */
+  --color-cc-page: #fbf8f2; /* page shell */
+  --color-cc-header: #ece6dc; /* sticky header band */
+  --color-cc-surface: #fffdf9; /* pills, cards, search bar */
+  --color-cc-ink: #2f241d; /* body + headings */
+  --color-cc-ink-strong: #33261f; /* card titles, search labels */
+  --color-cc-muted: #7e756c; /* card location, price */
+  --color-cc-muted-soft: #8a8179; /* search placeholder */
+  --color-cc-muted-deep: #6f6259; /* inactive category */
+  --color-cc-brown: #5b4636; /* result count */
+  --color-cc-olive: #646a45; /* primary accent */
+  --color-cc-olive-deep: #4f5436; /* footer, favourites label */
+  --color-cc-olive-ink: #555b3c; /* chip text */
+  --color-cc-burgundy: #4b0a0f; /* eyebrow */
+
+  /* The `font-cc-*` families are declared in tailwind.config.mjs, not here: a
+     JS config loaded via `@config` owns the whole `font-*` namespace and drops
+     anything added to it from `@theme`. */
+
+  /* Both shadows are two-layer in the original: a wide soft drop plus a tight
+     contact shadow. Collapsing them into one loses the lift. */
+  --shadow-cc-header: 0 10px 28px rgb(51 38 31 / 0.05);
+  --shadow-cc-search:
+    0 10px 30px rgb(51 38 31 / 0.08), 0 2px 8px rgb(51 38 31 / 0.04);
+  --shadow-cc-pill: 0 4px 14px rgb(47 36 29 / 0.05);
+  --shadow-cc-card:
+    0 12px 30px rgb(47 36 29 / 0.05), 0 2px 8px rgb(47 36 29 / 0.03);
+  --shadow-cc-media:
+    0 18px 36px rgb(51 38 31 / 0.12), 0 4px 12px rgb(51 38 31 / 0.05);
 }
 
 @layer utilities {

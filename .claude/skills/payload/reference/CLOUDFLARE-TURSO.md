@@ -63,6 +63,97 @@ The `??` fallback matters. A plain namespace import fixes the Worker and **break
 
 **Revisit this patch on every Payload upgrade.** If upstream fixes the import, delete it.
 
+## Two failures that look like Cloudflare and are not
+
+Both of these were diagnosed against a live deployment. Both reproduce locally with `pnpm build && npx next start`, which is the cheapest way to tell "broken on Workers" apart from "broken in the production build".
+
+### `NEXT_PUBLIC_*` cannot be set at runtime — ever
+
+Symptom: requests to `http://localhost:3000/api/...` from the deployed site, failing with `ERR_CONNECTION_REFUSED`, while *other* requests to the same endpoint succeed.
+
+Cause: `next build` **inlines** every `NEXT_PUBLIC_*` value into the JavaScript. Setting one in `wrangler.jsonc` `vars`, or as a Worker secret, does nothing — the bundle already holds whatever was present at build time. `src/providers/Auth/index.tsx` builds absolute URLs from `process.env.NEXT_PUBLIC_SERVER_URL`, so it froze `http://localhost:3000`.
+
+Why some calls still worked: the ecommerce plugin issues **relative** URLs (`/api/users/me?...`), which resolve against whatever origin the page is on. Same endpoint, two callers, one hardcoding a base and one not.
+
+Fix: supply it to the build.
+
+```bash
+NEXT_PUBLIC_SERVER_URL="https://<worker>.workers.dev" pnpm cf:deploy
+```
+
+Verify it took, rather than assuming:
+
+```bash
+rg -l "localhost:3000" .open-next/assets/_next/static/chunks/   # must print nothing
+```
+
+The durable fix is architectural: a repository should take a base URL through its constructor and default to a **relative** one. Absolute URLs built from env vars inside components are the un-migrated transactional logic described in [HEXAGONAL.md](HEXAGONAL.md).
+
+### A duplicated `@payloadcms/ui` blanks the admin panel
+
+Symptom: every admin route renders a blank page, or "This page couldn't load". No server error, no failed request, nothing in `wrangler tail`. `curl` shows HTTP 200 and an empty `<body>`. The browser console shows:
+
+```txt
+useUploadHandlers must be used within UploadHandlersProvider
+```
+
+That message is misleading. `UploadHandlersProvider` **is** mounted — unconditionally, inside `RootProvider` — and custom providers render as its children. The real cause is that the provider and the consumer came from **two different physical copies** of `@payloadcms/ui`:
+
+```txt
+@payloadcms/next                        -> @payloadcms/ui@...14ecdbd5   CREATES the context
+@payloadcms/plugin-cloud-storage/client -> @payloadcms/ui@...88c1019b   READS the context
+```
+
+Two module instances mean two distinct React context objects, so the consumer never sees the provider's value. pnpm creates one physical copy per distinct peer-dependency resolution, and this project had **four** copies of `@payloadcms/ui`.
+
+Fix: `nodeLinker: hoisted` in `pnpm-workspace.yaml` — a flat, npm-style `node_modules` with one copy of each package. `pnpm dedupe` does **not** fix it; the copies are legitimate peer variants, not accidental duplicates.
+
+This is not specific to R2. Any package that shares a React context across a plugin boundary can hit it.
+
+**Diagnostic lesson:** this failure is invisible to `curl` — the HTML is a normal 200 and the admin is client-rendered. Check admin changes in a real browser and read the console.
+
+### Do not use a missing endpoint as proof that R2 is off
+
+`POST /api/storage-r2-multi-part-upload` returning 404 looks like "the plugin is disabled". It is not: `initClientUploads` registers that endpoint **only when `clientUploads` is configured**, independently of whether the adapter is active.
+
+With `clientUploads: true` the endpoint exists and answers `403` to an unauthenticated request, which *is* a usable signal:
+
+| Response | Meaning |
+| --- | --- |
+| `403 You are not allowed…` | Plugin active, endpoint registered |
+| `404 Route not found` | Either the adapter is off **or** `clientUploads` is not set |
+
+### Reading the binding: ask the runtime, not `NODE_ENV`
+
+`getCloudflareContext()` only resolves inside workerd. Everywhere else — `next build`, `next dev`, the `payload` CLI — bindings come from Wrangler's platform proxy.
+
+Do not branch on `NODE_ENV`: it is `production` during `next build` too, so keying on it sends the build down the Worker-only path, where the context resolves to nothing. Branch on the runtime itself:
+
+```ts
+const { env } = isWorkersRuntime
+  ? await getCloudflareContext({ async: true })
+  : await getContextFromWrangler()   // getPlatformProxy, remoteBindings: true
+```
+
+Then split the two concerns, which is what gives the same local/production behaviour the database has:
+
+- **Registration** is static — the plugin is always in the array, because `generate:importmap` reads that list and a conditionally-registered plugin is missing from the map in exactly the environment that needs it.
+- **Activation** is `isWorkersRuntime && Boolean(bucket)`. The bucket check alone is not enough: the proxy hands the build and the CLI the *real* bucket on purpose, so without the runtime check `pnpm dev` writes into the production bucket.
+
+Verified end to end: `404` on the upload endpoint locally (disk), `403` in production (R2 active).
+
+### Registering plugins conditionally is its own trap
+
+Even setting the bug above aside, do not build the plugin list dynamically.
+
+`payload generate:importmap` discovers admin components by walking the config at **build** time, and the map it writes is the only way the admin resolves a component at **runtime**. A plugin that registers only when a binding exists is absent when you generate the map locally and present in production, which yields:
+
+```txt
+getFromImportMap: PayloadComponent not found in importMap
+```
+
+Registration should be static; activation is what varies.
+
 ## Configuration map
 
 | File | Responsibility |
@@ -85,11 +176,13 @@ export const isRemoteDatabase = !url.startsWith('file:')
 
 sqliteAdapter({
   client: { url, ...(isRemoteDatabase ? { authToken: process.env.DATABASE_AUTH_TOKEN } : {}) },
-  push: !isRemoteDatabase,
+  push: false,
 })
 ```
 
-**`push` is gated on the destination, not on `NODE_ENV`.** Drizzle's dev push writes schema changes into the database at runtime — fine against a local file you can delete, dangerous against a shared remote one. Running `pnpm dev` against Turso must not push either, and `NODE_ENV` would not catch that.
+**`push` is off everywhere, including local development.** Drizzle's dev push runs on every `getPayload()` connect: it introspects the database, diffs against the config and applies the difference. That works on a database push itself created, and collides with one built by migrations — it does not recognise the indexes the migrations already made, reissues them, and the connection dies with `index ... already exists`.
+
+The two cannot share a database. Keeping push for local and migrations for production is also precisely what makes the two schemas diverge, and the divergence only surfaces on deploy.
 
 With push off, schema reaches Turso only through migrations:
 

@@ -5,4 +5,33 @@ allowBuilds:
   unrs-resolver: true
   workerd: true
 patchedDependencies:
+  '@payloadcms/storage-r2@3.89.0': patches/@payloadcms__storage-r2@3.89.0.patch
   payload@3.89.0: patches/payload@3.89.0.patch
+
+# A flat node_modules, npm-style, instead of pnpm's nested symlink layout.
+#
+# WHY: pnpm creates one physical copy of a package per distinct peer-dependency
+# resolution. That produced FOUR copies of `@payloadcms/ui`, and two of them
+# ended up on either side of a React context:
+#
+#   @payloadcms/next            -> @payloadcms/ui@...14ecdbd5   (renders RootProvider,
+#                                                                CREATES the context)
+#   @payloadcms/plugin-cloud-storage/client
+#                               -> @payloadcms/ui@...88c1019b   (calls useUploadHandlers,
+#                                                                READS the context)
+#
+# Two module instances mean two distinct context objects, so the consumer never
+# sees the provider's value and React throws:
+#
+#   useUploadHandlers must be used within UploadHandlersProvider
+#
+# which blanks the entire admin panel. The same class of bug hits any package
+# that shares React context across a plugin boundary — it is not specific to R2.
+#
+# `pnpm dedupe` does not fix it: the copies are legitimate peer variants, not
+# accidental duplicates.
+#
+# COST: a larger node_modules and the loss of pnpm's strict dependency
+# isolation, which is a guardrail for libraries and mostly irrelevant for an
+# application. Correct rendering is worth more than the guardrail here.
+nodeLinker: hoisted

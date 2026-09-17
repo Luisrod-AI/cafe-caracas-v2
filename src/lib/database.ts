@@ -38,13 +38,25 @@ export const databaseAdapter = sqliteAdapter({
     ...(isRemoteDatabase ? { authToken: process.env.DATABASE_AUTH_TOKEN } : {}),
   },
   /**
-   * Drizzle's dev push writes schema changes straight into the database at
-   * runtime. That is convenient against a local file you can delete, and
-   * dangerous against a shared remote one, so it is tied to the destination and
-   * not to NODE_ENV — running `pnpm dev` with a Turso URL must not push either.
+   * OFF everywhere, including local development.
    *
-   * With push off, schema changes reach Turso only through migrations generated
-   * by `payload migrate:create` and applied by `payload migrate` before deploy.
+   * Drizzle's dev push runs on every `getPayload()` connect: it introspects the
+   * database, diffs against the config and applies the difference. That works
+   * on a database push itself created — and collides with one built by
+   * migrations. It does not recognise the indexes the migrations already made,
+   * so it reissues them and the connection dies:
+   *
+   *   SQLITE_ERROR: index payload_locked_documents_rels_order_idx already exists
+   *
+   * Which means the two cannot share a database. Keeping push for local and
+   * migrations for production is what made the two schemas diverge in the first
+   * place, and the divergence only surfaces on deploy.
+   *
+   * So there is ONE path now: `payload migrate:create` then `payload migrate`,
+   * against local and against Turso alike. Changing a field costs one extra
+   * command; in exchange, what you develop against is what ships.
+   *
+   * See docs/agregar-coleccion-payload.md.
    */
-  push: !isRemoteDatabase,
+  push: false,
 })

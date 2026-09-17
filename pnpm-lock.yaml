@@ -5,6 +5,7 @@ settings:
   excludeLinksFromLockfile: false
 
 patchedDependencies:
+  '@payloadcms/storage-r2@3.89.0': d9b15a923045c41fb33e315392cf81b9a1a30143fe8b74d1c7859f63a6328d25
   payload@3.89.0: 2077675092fdad55295a4eae70d89610403031dc3b50227b647cd4caa28e36e6
 
 importers:
@@ -49,7 +50,7 @@ importers:
         version: 3.89.0(a47431500d55e3ef05677950fe0e1d81)
       '@payloadcms/storage-r2':
         specifier: 3.89.0
-        version: 3.89.0(@types/react@19.2.14)(monaco-editor@0.56.0)(next@16.3.3(@babel/core@7.29.7(supports-color@10.2.2))(@playwright/test@1.58.2)(@types/node@22.19.9)(babel-plugin-macros@3.1.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(sass@1.77.4))(payload@3.89.0(patch_hash=2077675092fdad55295a4eae70d89610403031dc3b50227b647cd4caa28e36e6)(graphql@16.14.2)(supports-color@10.2.2)(typescript@5.7.2))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(supports-color@10.2.2)(typescript@5.7.2)
+        version: 3.89.0(patch_hash=d9b15a923045c41fb33e315392cf81b9a1a30143fe8b74d1c7859f63a6328d25)(@types/react@19.2.14)(monaco-editor@0.56.0)(next@16.3.3(@babel/core@7.29.7(supports-color@10.2.2))(@playwright/test@1.58.2)(@types/node@22.19.9)(babel-plugin-macros@3.1.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(sass@1.77.4))(payload@3.89.0(patch_hash=2077675092fdad55295a4eae70d89610403031dc3b50227b647cd4caa28e36e6)(graphql@16.14.2)(supports-color@10.2.2)(typescript@5.7.2))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(supports-color@10.2.2)(typescript@5.7.2)
       '@payloadcms/translations':
         specifier: 3.89.0
         version: 3.89.0
@@ -3030,9 +3031,6 @@ packages:
 
   '@types/node@22.19.9':
     resolution: {integrity: sha512-PD03/U8g1F9T9MI+1OBisaIARhSzeidsUjQaf51fOxrfjeiKN9bLVO06lHuHYjxdnqLWJijJHfqXPSJri2EM2A==}
-
-  '@types/node@22.20.3':
-    resolution: {integrity: sha512-DZmzkmwHzXrLPAXPyKNDzlIwMMUZCVacoD25ywdy5YTKGbOx/2ld+Q38Im2zJ0vBuZP5Prd3VZutKZyXwkOS8A==}
 
   '@types/parse-json@4.0.2':
     resolution: {integrity: sha512-dISoDXWWQwUquiKsyZ4Ng+HX2KsPL7LyHKHQwgGFEA3IaKac4Obd+h2a/a6waisAoepJlBcx9paWqjA8/HVjCw==}
@@ -7571,7 +7569,7 @@ snapshots:
   '@esbuild-kit/esm-loader@2.6.5':
     dependencies:
       '@esbuild-kit/core-utils': 3.3.2
-      get-tsconfig: 4.8.1
+      get-tsconfig: 4.14.3
 
   '@esbuild/aix-ppc64@0.25.4':
     optional: true
@@ -8733,7 +8731,7 @@ snapshots:
       - utf-8-validate
       - yjs
 
-  '@payloadcms/storage-r2@3.89.0(@types/react@19.2.14)(monaco-editor@0.56.0)(next@16.3.3(@babel/core@7.29.7(supports-color@10.2.2))(@playwright/test@1.58.2)(@types/node@22.19.9)(babel-plugin-macros@3.1.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(sass@1.77.4))(payload@3.89.0(patch_hash=2077675092fdad55295a4eae70d89610403031dc3b50227b647cd4caa28e36e6)(graphql@16.14.2)(supports-color@10.2.2)(typescript@5.7.2))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(supports-color@10.2.2)(typescript@5.7.2)':
+  '@payloadcms/storage-r2@3.89.0(patch_hash=d9b15a923045c41fb33e315392cf81b9a1a30143fe8b74d1c7859f63a6328d25)(@types/react@19.2.14)(monaco-editor@0.56.0)(next@16.3.3(@babel/core@7.29.7(supports-color@10.2.2))(@playwright/test@1.58.2)(@types/node@22.19.9)(babel-plugin-macros@3.1.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(sass@1.77.4))(payload@3.89.0(patch_hash=2077675092fdad55295a4eae70d89610403031dc3b50227b647cd4caa28e36e6)(graphql@16.14.2)(supports-color@10.2.2)(typescript@5.7.2))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(supports-color@10.2.2)(typescript@5.7.2)':
     dependencies:
       '@payloadcms/plugin-cloud-storage': 3.89.0(@types/react@19.2.14)(monaco-editor@0.56.0)(next@16.3.3(@babel/core@7.29.7(supports-color@10.2.2))(@playwright/test@1.58.2)(@types/node@22.19.9)(babel-plugin-macros@3.1.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(sass@1.77.4))(payload@3.89.0(patch_hash=2077675092fdad55295a4eae70d89610403031dc3b50227b647cd4caa28e36e6)(graphql@16.14.2)(supports-color@10.2.2)(typescript@5.7.2))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(supports-color@10.2.2)(typescript@5.7.2)
       payload: 3.89.0(patch_hash=2077675092fdad55295a4eae70d89610403031dc3b50227b647cd4caa28e36e6)(graphql@16.14.2)(supports-color@10.2.2)(typescript@5.7.2)
@@ -9551,7 +9549,7 @@ snapshots:
       '@alloc/quick-lru': 5.3.0
       '@tailwindcss/node': 4.1.18
       '@tailwindcss/oxide': 4.1.18
-      postcss: 8.5.23
+      postcss: 8.5.28
       tailwindcss: 4.1.18
 
   '@tailwindcss/typography@0.5.20(tailwindcss@4.3.3)':
@@ -9625,7 +9623,7 @@ snapshots:
 
   '@types/busboy@1.5.4':
     dependencies:
-      '@types/node': 22.20.3
+      '@types/node': 22.19.9
 
   '@types/chai@5.2.3':
     dependencies:
@@ -9655,7 +9653,7 @@ snapshots:
   '@types/jsonwebtoken@9.0.10':
     dependencies:
       '@types/ms': 2.1.0
-      '@types/node': 22.20.3
+      '@types/node': 22.19.9
 
   '@types/lodash@4.17.25': {}
 
@@ -9667,7 +9665,7 @@ snapshots:
 
   '@types/node-fetch@2.6.13':
     dependencies:
-      '@types/node': 22.20.3
+      '@types/node': 22.19.9
       form-data: 4.0.6
 
   '@types/node@18.19.130':
@@ -9675,10 +9673,6 @@ snapshots:
       undici-types: 5.26.5
 
   '@types/node@22.19.9':
-    dependencies:
-      undici-types: 6.21.0
-
-  '@types/node@22.20.3':
     dependencies:
       undici-types: 6.21.0
 
@@ -9709,7 +9703,7 @@ snapshots:
 
   '@types/ws@8.18.1':
     dependencies:
-      '@types/node': 22.20.3
+      '@types/node': 22.19.9
 
   '@typescript-eslint/eslint-plugin@8.70.0(@typescript-eslint/parser@8.70.0(eslint@9.39.5(jiti@2.7.0)(supports-color@10.2.2))(supports-color@10.2.2)(typescript@5.7.2))(eslint@9.39.5(jiti@2.7.0)(supports-color@10.2.2))(supports-color@10.2.2)(typescript@5.7.2)':
     dependencies:
@@ -10157,7 +10151,7 @@ snapshots:
 
   buffer-image-size@0.6.4:
     dependencies:
-      '@types/node': 22.20.3
+      '@types/node': 22.19.9
 
   busboy@1.6.0:
     dependencies:
@@ -11334,7 +11328,7 @@ snapshots:
 
   happy-dom@20.14.5:
     dependencies:
-      '@types/node': 22.20.3
+      '@types/node': 22.19.9
       '@types/whatwg-mimetype': 3.0.2
       '@types/ws': 8.18.1
       buffer-image-size: 0.6.4
@@ -13449,7 +13443,7 @@ snapshots:
       esbuild: 0.28.2
       fdir: 6.5.0(picomatch@4.0.7)
       picomatch: 4.0.7
-      postcss: 8.5.23
+      postcss: 8.5.28
       rollup: 4.63.3
       tinyglobby: 0.2.17
     optionalDependencies:

@@ -75,6 +75,7 @@ export interface Config {
     users: User;
     pages: Page;
     categories: Category;
+    cafes: Cafe;
     media: Media;
     forms: Form;
     'form-submissions': FormSubmission;
@@ -108,6 +109,7 @@ export interface Config {
     users: UsersSelect<false> | UsersSelect<true>;
     pages: PagesSelect<false> | PagesSelect<true>;
     categories: CategoriesSelect<false> | CategoriesSelect<true>;
+    cafes: CafesSelect<false> | CafesSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     forms: FormsSelect<false> | FormsSelect<true>;
     'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
@@ -1013,6 +1015,149 @@ export interface Address {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "cafes".
+ */
+export interface Cafe {
+  id: number;
+  name: string;
+  /**
+   * When enabled, the slug will auto-generate from the title field on save and autosave.
+   */
+  generateSlug?: boolean | null;
+  slug: string;
+  /**
+   * Vacío cuando nadie la ha calificado — no es lo mismo que 0.
+   */
+  rate?: number | null;
+  cost?: string | null;
+  status?: string | null;
+  /**
+   * Texto libre separado por «/» o «,». El frontend lo parte para armar los chips.
+   */
+  category?: string | null;
+  notes?: string | null;
+  brand?: string | null;
+  /**
+   * Para cadenas con varias sedes.
+   */
+  branch?: string | null;
+  zone?: ('este' | 'centro este' | 'centro' | 'centro oeste' | 'oeste' | 'sureste' | 'sur' | 'varias') | null;
+  municipality?: string | null;
+  /**
+   * Un café en un límite puede pertenecer a más de una zona.
+   */
+  zones?: ('este' | 'centro este' | 'centro' | 'centro oeste' | 'oeste' | 'sureste' | 'sur' | 'varias')[] | null;
+  neighborhood?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  otherLocations?:
+    | {
+        label: string;
+        id?: string | null;
+      }[]
+    | null;
+  coordinateAccuracy?: string | null;
+  coordinateSource?: string | null;
+  image?: (number | null) | Media;
+  /**
+   * Temporal: URL absoluta del prototipo. Se ignora en cuanto exista una imagen cargada.
+   */
+  imageUrl?: string | null;
+  imageType?: string | null;
+  imageVerified?: boolean | null;
+  hours?: {
+    monday?: {
+      open?: string | null;
+      close?: string | null;
+    };
+    tuesday?: {
+      open?: string | null;
+      close?: string | null;
+    };
+    wednesday?: {
+      open?: string | null;
+      close?: string | null;
+    };
+    thursday?: {
+      open?: string | null;
+      close?: string | null;
+    };
+    friday?: {
+      open?: string | null;
+      close?: string | null;
+    };
+    saturday?: {
+      open?: string | null;
+      close?: string | null;
+    };
+    sunday?: {
+      open?: string | null;
+      close?: string | null;
+    };
+  };
+  hoursSource?: string | null;
+  hoursVerified?: string | null;
+  amenities?: {
+    wifi?: ('unknown' | 'yes' | 'no') | null;
+    coworking?: ('unknown' | 'yes' | 'no') | null;
+    cozy?: ('unknown' | 'yes' | 'no') | null;
+    terrace?: ('unknown' | 'yes' | 'no') | null;
+    petFriendly?: ('unknown' | 'yes' | 'no') | null;
+    parking?: ('unknown' | 'yes' | 'no') | null;
+    brunch?: ('unknown' | 'yes' | 'no') | null;
+    sightseeing?: ('unknown' | 'yes' | 'no') | null;
+  };
+  /**
+   * Los primeros cuatro se muestran por página en el detalle del café.
+   */
+  menu?:
+    | {
+        name: string;
+        price?: string | null;
+        currency?: string | null;
+        /**
+         * Opcional. Sin ella se usa el marcador.
+         */
+        imageUrl?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Búsqueda en Google Maps.
+   */
+  link?: string | null;
+  /**
+   * Ficha exacta en Google Maps.
+   */
+  location?: string | null;
+  website?: string | null;
+  instagram?: string | null;
+  sourceUrl?: string | null;
+  sourceType?: string | null;
+  research?: {
+    verifiedAt?: string | null;
+    confidence?: ('high' | 'medium' | 'low') | null;
+    sources?:
+      | {
+          type?: string | null;
+          url?: string | null;
+          id?: string | null;
+        }[]
+      | null;
+  };
+  filterReady?: {
+    zone?: boolean | null;
+    municipality?: boolean | null;
+    coordinates?: boolean | null;
+    hours?: boolean | null;
+    amenities?: boolean | null;
+    price?: boolean | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "form-submissions".
  */
 export interface FormSubmission {
@@ -1063,6 +1208,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'categories';
         value: number | Category;
+      } | null)
+    | ({
+        relationTo: 'cafes';
+        value: number | Cafe;
       } | null)
     | ({
         relationTo: 'media';
@@ -1357,6 +1506,140 @@ export interface CategoriesSelect<T extends boolean = true> {
   title?: T;
   generateSlug?: T;
   slug?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "cafes_select".
+ */
+export interface CafesSelect<T extends boolean = true> {
+  name?: T;
+  generateSlug?: T;
+  slug?: T;
+  rate?: T;
+  cost?: T;
+  status?: T;
+  category?: T;
+  notes?: T;
+  brand?: T;
+  branch?: T;
+  zone?: T;
+  municipality?: T;
+  zones?: T;
+  neighborhood?: T;
+  latitude?: T;
+  longitude?: T;
+  otherLocations?:
+    | T
+    | {
+        label?: T;
+        id?: T;
+      };
+  coordinateAccuracy?: T;
+  coordinateSource?: T;
+  image?: T;
+  imageUrl?: T;
+  imageType?: T;
+  imageVerified?: T;
+  hours?:
+    | T
+    | {
+        monday?:
+          | T
+          | {
+              open?: T;
+              close?: T;
+            };
+        tuesday?:
+          | T
+          | {
+              open?: T;
+              close?: T;
+            };
+        wednesday?:
+          | T
+          | {
+              open?: T;
+              close?: T;
+            };
+        thursday?:
+          | T
+          | {
+              open?: T;
+              close?: T;
+            };
+        friday?:
+          | T
+          | {
+              open?: T;
+              close?: T;
+            };
+        saturday?:
+          | T
+          | {
+              open?: T;
+              close?: T;
+            };
+        sunday?:
+          | T
+          | {
+              open?: T;
+              close?: T;
+            };
+      };
+  hoursSource?: T;
+  hoursVerified?: T;
+  amenities?:
+    | T
+    | {
+        wifi?: T;
+        coworking?: T;
+        cozy?: T;
+        terrace?: T;
+        petFriendly?: T;
+        parking?: T;
+        brunch?: T;
+        sightseeing?: T;
+      };
+  menu?:
+    | T
+    | {
+        name?: T;
+        price?: T;
+        currency?: T;
+        imageUrl?: T;
+        id?: T;
+      };
+  link?: T;
+  location?: T;
+  website?: T;
+  instagram?: T;
+  sourceUrl?: T;
+  sourceType?: T;
+  research?:
+    | T
+    | {
+        verifiedAt?: T;
+        confidence?: T;
+        sources?:
+          | T
+          | {
+              type?: T;
+              url?: T;
+              id?: T;
+            };
+      };
+  filterReady?:
+    | T
+    | {
+        zone?: T;
+        municipality?: T;
+        coordinates?: T;
+        hours?: T;
+        amenities?: T;
+        price?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
 }
