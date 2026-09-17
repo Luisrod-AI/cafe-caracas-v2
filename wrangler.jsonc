@@ -41,6 +41,20 @@
     "PAYLOAD_LOG_LEVEL": "info",
     "NEXT_PUBLIC_SERVER_URL": "https://cafe-caracas.jeelidevtestuser1.workers.dev",
     "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY": "pk_test_",
+
+    // The same origin again, WITHOUT the `NEXT_PUBLIC_` prefix — and that is the
+    // entire point, not a duplicate.
+    //
+    // Next inlines every `NEXT_PUBLIC_*` reference at build time, so server code
+    // reading `process.env.NEXT_PUBLIC_SERVER_URL` gets whatever the BUILD
+    // machine had (here: `http://localhost:3000`, baked into the bundle 24
+    // times). Setting it in `vars` cannot override a value that is already a
+    // string literal in the compiled output.
+    //
+    // A name without the prefix is never inlined, so it stays a real runtime
+    // lookup and the Worker's env wins. Used to turn Payload's relative media
+    // URLs into absolute ones — see src/modules/cafes/.../cafeMapper.ts.
+    "SITE_URL": "https://cafe-caracas.jeelidevtestuser1.workers.dev",
   },
 
   // Secrets are NOT set here — they would end up in git. Set them with:

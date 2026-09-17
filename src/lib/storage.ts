@@ -150,20 +150,44 @@ export async function storagePlugins(): Promise<Plugin[]> {
        *
        * ⚠️ REQUIRES patches/@payloadcms__storage-r2@3.89.0.patch.
        *
-       * Upstream 3.89.0 cannot run this feature at all. `r2Storage` calls
-       * `initClientUploads` without `extraClientHandlerProps`, so the admin
-       * provider is mounted with `extra: undefined` — and
-       * `R2ClientUploadHandler` destructures `extra: { chunkSize = ... }` on its
-       * first line. Destructuring a property off `undefined` throws:
+       * Upstream 3.89.0 cannot run this feature at all. `R2ClientUploadHandler`
+       * has TWO independent defects, and the second only becomes reachable once
+       * the first is fixed.
        *
-       *   TypeError: Cannot read properties of undefined (reading 'chunkSize')
+       * 1. `r2Storage` calls `initClientUploads` without
+       *    `extraClientHandlerProps`, so the admin provider is mounted with
+       *    `extra: undefined` — and the handler destructures
+       *    `extra: { chunkSize = ... }` on its first line. Destructuring a
+       *    property off `undefined` throws before the first `fetch`, so the
+       *    network tab stays empty and the admin shows only a toast:
        *
-       * It throws before the first `fetch`, so the network tab stays empty and
-       * the admin shows only a toast. The patch defaults `extra` to `{}`.
+       *      TypeError: Cannot read properties of undefined (reading 'chunkSize')
        *
-       * This is invisible in development because `enabled` is false outside
-       * workerd, so the handler is never registered and uploads take the plain
-       * server path. The bug can only appear in production.
+       *    Patched by defaulting `extra` to `{}`.
+       *
+       * 2. The request URL is built ONCE, before `params` is mutated to carry
+       *    `multipartId` / `multipartKey` / `multipartNumber`. `URLSearchParams`
+       *    snapshots the object it is handed, so every later mutation is lost
+       *    and all three requests go out with the create-upload query string.
+       *
+       *    The server therefore takes its "create multipart upload" branch every
+       *    time: it opens three uploads, receives no parts, completes none, and
+       *    answers the final request with JSON instead of the object key. The
+       *    client stores that JSON blob as `clientUploadContext.key`, and
+       *    `POST /api/media` then 500s trying to resolve a key that is really a
+       *    serialised `{filename, key, uploadId}`.
+       *
+       *    Nothing ever reaches the bucket, yet all three POSTs log `Ok`.
+       *    Patched by making the endpoint a function evaluated per request.
+       *
+       * Both are invisible in development: `enabled` is false outside workerd,
+       * so the handler is never registered and uploads take the plain server
+       * path. They can only appear in production.
+       *
+       * ⚠️ After changing this patch, delete `.next` before building. Next reuses
+       * its module cache for `node_modules`, and a stale build silently emits
+       * the OLD chunk under the SAME hash. Verify by diffing the hash of the
+       * `9711-*.js` chunk, not by trusting a green build.
        */
       clientUploads: true,
     }),

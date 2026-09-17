@@ -21,6 +21,42 @@ import { isExpandedMedia } from '../dto/CafeDto'
  */
 
 /**
+ * Payload emits `/api/media/file/<name>`; `next/image` needs the absolute form.
+ *
+ * On Cloudflare the optimiser resolves a RELATIVE `src` against the static
+ * assets binding — `env.ASSETS.fetch(url)` — never against the Worker. Media
+ * files are served by a dynamic Payload route, so the assets binding has no such
+ * object and answers 404. The optimiser then returns, with that same 404:
+ *
+ *   "url" parameter is valid but upstream response is invalid
+ *
+ * The image itself is fine: fetching `/api/media/file/<name>` directly returns
+ * 200 `image/jpeg`. Only the optimiser's relative branch is unreachable.
+ *
+ * An absolute URL takes the other branch, a plain public `fetch`, which works —
+ * and `next.config.ts` already allows this host, since it derives a remote
+ * pattern from `NEXT_PUBLIC_SERVER_URL`. The cost is one subrequest back into
+ * the Worker per distinct image and width; Cloudflare then caches the result.
+ *
+ * `SITE_URL` deliberately lacks the `NEXT_PUBLIC_` prefix. Anything with that
+ * prefix is inlined by Next at build time, so it would carry the build
+ * machine's `http://localhost:3000` into production no matter what Wrangler
+ * says. See the note in wrangler.jsonc.
+ *
+ * With no `SITE_URL` the relative URL is returned unchanged, which is correct
+ * for `next dev`: there the optimiser fetches relative URLs from the dev server
+ * itself, so they already resolve.
+ */
+function toAbsoluteMediaUrl(url: string): string {
+  if (!url.startsWith('/')) return url
+
+  const origin = process.env.SITE_URL
+  if (!origin) return url
+
+  return `${origin.replace(/\/$/, '')}${url}`
+}
+
+/**
  * An uploaded Media document wins over the seeded external URL.
  *
  * Both exist on purpose during the migration from the prototype's assets: this
@@ -28,7 +64,7 @@ import { isExpandedMedia } from '../dto/CafeDto'
  * no other change.
  */
 function toImageUrl(image: MediaRef, imageUrl: string | null | undefined): string | null {
-  if (isExpandedMedia(image) && image.url) return image.url
+  if (isExpandedMedia(image) && image.url) return toAbsoluteMediaUrl(image.url)
   return imageUrl || null
 }
 

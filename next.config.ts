@@ -18,6 +18,25 @@ void initOpenNextCloudflareForDev()
 
 const NEXT_PUBLIC_SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3000'
 
+/**
+ * The deployed origin, needed at BUILD time and therefore not readable from the
+ * Worker's environment.
+ *
+ * It is written out rather than derived from `NEXT_PUBLIC_SERVER_URL` because
+ * that variable holds the BUILD machine's value — `http://localhost:3000` — and
+ * the remote pattern built from it allows only localhost. Uploaded media is
+ * addressed absolutely (see the note in `cafeMapper.ts`), so without this entry
+ * every `/_next/image` request for a Media file is rejected before it is even
+ * fetched:
+ *
+ *   "url" parameter is not allowed
+ *
+ * ⚠️ Must match `vars.SITE_URL` in wrangler.jsonc. Two files hold this string:
+ * one is read while building, the other while serving, and neither can see the
+ * other's value.
+ */
+const DEPLOYED_ORIGIN = 'https://cafe-caracas.jeelidevtestuser1.workers.dev'
+
 const nextConfig: NextConfig = {
   // Temporarily required on Windows until Next.js fixes Turbopack Sass resolution.
   // See: https://github.com/vercel/next.js/issues/86431
@@ -40,6 +59,21 @@ const nextConfig: NextConfig = {
           protocol: url.protocol.replace(':', '') as 'http' | 'https',
         }
       }),
+      {
+        /**
+         * Our own origin, for Media files served by Payload.
+         *
+         * On Cloudflare a RELATIVE `src` is resolved by the optimiser against
+         * the static assets binding, never against the Worker, so a dynamic
+         * route like `/api/media/file/<name>` always answers 404 there. Media
+         * URLs are therefore made absolute, which routes them through the
+         * optimiser's public-fetch branch instead — and that branch checks this
+         * list.
+         */
+        hostname: new URL(DEPLOYED_ORIGIN).hostname,
+        pathname: '/api/media/file/**',
+        protocol: 'https',
+      },
       {
         /**
          * Photography for the /cafe-caracas prototype page, served from the
