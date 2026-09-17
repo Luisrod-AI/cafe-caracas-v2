@@ -7,6 +7,11 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: ['./vitest.setup.ts'],
-    include: ['tests/int/**/*.int.spec.ts'],
+    /**
+     * Module tests live beside the code they cover rather than in `tests/`.
+     * A module is meant to be self-contained — moving one should not mean
+     * hunting for its tests in a parallel tree.
+     */
+    include: ['tests/int/**/*.int.spec.ts', 'src/modules/**/*.spec.ts'],
   },
 })

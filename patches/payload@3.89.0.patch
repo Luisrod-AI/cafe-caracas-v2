@@ -1,0 +1,16 @@
+diff --git a/dist/bin/loadEnv.js b/dist/bin/loadEnv.js
+index b61ecc1684f0b686fa8bbcefa68b5ed825c09420..5c16fea24fba6a9f61e08103c356f18b7de60f01 100644
+--- a/dist/bin/loadEnv.js
++++ b/dist/bin/loadEnv.js
+@@ -1,5 +1,10 @@
+-import nextEnvImport from '@next/env';
++import * as nextEnvNamespace from '@next/env';
+ import { findUpSync } from '../utilities/findUp.js';
++// Namespace import, not a default import: on Cloudflare Workers the OpenNext
++// adapter replaces '@next/env' with a shim that has only NAMED exports, and a
++// default import fails the build. In Node the real package is CJS, where the
++// namespace puts the module under `.default` — so both shapes are handled.
++const nextEnvImport = nextEnvNamespace.default ?? nextEnvNamespace;
+ const { loadEnvConfig } = nextEnvImport;
+ /**
+  * Try to find user's env files and load it. Uses the same algorithm next.js uses to parse env files, meaning this also supports .env.local, .env.development, .env.production, etc.

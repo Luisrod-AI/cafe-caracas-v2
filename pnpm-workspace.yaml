@@ -1,6 +1,8 @@
 allowBuilds:
-  '@vercel/git-hooks': set this to true or false
+  '@vercel/git-hooks': true
   esbuild: true
   sharp: true
   unrs-resolver: true
   workerd: true
+patchedDependencies:
+  payload@3.89.0: patches/payload@3.89.0.patch

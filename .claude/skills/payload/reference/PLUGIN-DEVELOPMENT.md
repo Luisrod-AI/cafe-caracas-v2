@@ -2,6 +2,16 @@
 
 Complete guide to creating Payload CMS plugins with TypeScript patterns, package structure, and best practices from the official Payload plugin template.
 
+> **Position: outside the hexagon.** A plugin extends the CMS. It is not a frontend module, and the two package shapes should not be confused: a plugin exports a `(options) => (config) => Config` function; a module under `src/modules/` exports domain types and repositories.
+>
+> **A plugin that adds fields moves the wire contract downstream.** After installing or upgrading one, run `pnpm generate:types` and check the DTO and mapper of any module that reads the affected collections — the plugin author has no idea your domain entities exist.
+>
+> This project is a live example. `@payloadcms/plugin-ecommerce` owns the Products, Orders, Carts and Variants collections, which is why `src/modules/catalog`'s DTO is written as a view over the generated types rather than hand-copied: a plugin upgrade that removes a field then fails to compile instead of rendering blank.
+>
+> The same plugin is also why the product detail page is not fully migrated. `ProductDescription` is a plugin-owned client component that reads `priceIn${currency.code}` off the document by computed key — plugin-shaped code that cannot take a domain entity without redesigning the cart flow. That seam is named and isolated in `src/modules/catalog/infrastructure/repositories/productDocumentSource.ts`.
+>
+> See [HEXAGONAL.md](HEXAGONAL.md).
+
 ## Plugin Architecture
 
 Plugins are functions that receive configuration options and return a function that transforms the Payload config:

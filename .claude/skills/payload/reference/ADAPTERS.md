@@ -2,6 +2,21 @@
 
 Complete reference for database, storage, and email adapters.
 
+> **⚠️ Two different things are called "adapter" in this project. They are not related.**
+>
+> | | Payload adapter | Hexagonal adapter |
+> | --- | --- | --- |
+> | What | `sqliteAdapter`, `r2Storage`, `nodemailerAdapter` | `PayloadLocalProductRepository`, `PayloadRestProductRepository` |
+> | Plugs | Payload into a database, bucket or mail server | *our application* into Payload |
+> | Configured in | `payload.config.ts`, `src/lib/` | `src/modules/<d>/infrastructure/repositories/` |
+> | Position | Outside the hexagon — infrastructure of the CMS | The edge of the hexagon |
+>
+> This document is about the first kind. For the second, see [HEXAGONAL.md](HEXAGONAL.md).
+>
+> **Transactions belong to the repository.** The `req` threading described below happens *inside* `infrastructure/`, and a `req` object must never appear in a page, a component or a domain entity — it is a CMS request context, not application data. When a use case spans several writes, the repository method owns the transaction and exposes one domain-level operation.
+>
+> For this project's concrete database and storage setup — SQLite locally, Turso on Cloudflare, R2 for uploads, and the libSQL resolution trap that makes it work — see [CLOUDFLARE-TURSO.md](CLOUDFLARE-TURSO.md).
+
 ## Database Adapters
 
 ### MongoDB

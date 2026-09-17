@@ -4,8 +4,7 @@ import { RenderBlocks } from '@/blocks/RenderBlocks'
 import { GridTileImage } from '@/components/Grid/tile'
 import { Gallery } from '@/components/product/Gallery'
 import { ProductDescription } from '@/components/product/ProductDescription'
-import configPromise from '@payload-config'
-import { getPayload } from 'payload'
+import { findProductDocumentBySlug } from '@/modules/catalog/server'
 import { draftMode } from 'next/headers'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
@@ -182,37 +181,13 @@ function RelatedProducts({ products }: { products: Product[] }) {
   )
 }
 
+/**
+ * The query itself now lives in the catalog module. What is left here is the
+ * one thing that genuinely belongs to the page: reading Next's draft mode,
+ * which is a request concern the module has no business knowing about.
+ */
 const queryProductBySlug = async ({ slug }: { slug: string }) => {
   const { isEnabled: draft } = await draftMode()
 
-  const payload = await getPayload({ config: configPromise })
-
-  const result = await payload.find({
-    collection: 'products',
-    depth: 3,
-    draft,
-    limit: 1,
-    overrideAccess: draft,
-    pagination: false,
-    where: {
-      and: [
-        {
-          slug: {
-            equals: slug,
-          },
-        },
-        ...(draft ? [] : [{ _status: { equals: 'published' } }]),
-      ],
-    },
-    populate: {
-      variants: {
-        title: true,
-        priceInUSD: true,
-        inventory: true,
-        options: true,
-      },
-    },
-  })
-
-  return result.docs?.[0] || null
+  return findProductDocumentBySlug({ slug, draft })
 }

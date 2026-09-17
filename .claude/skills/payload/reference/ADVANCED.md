@@ -2,6 +2,20 @@
 
 Complete reference for authentication, jobs, custom endpoints, components, plugins, and localization.
 
+> **Mixed positions — check which side each section is on before applying it.**
+>
+> | Section | Position | What that means here |
+> | --- | --- | --- |
+> | **Authentication** | Edge of the hexagon | Goes behind an `auth` module. This is the textbook two-adapter case: login runs in the browser (REST), while "who is the current user" runs on the server (Local API). Same port, two implementations. |
+> | **Jobs / queues** | Edge of the hexagon | A task handler is a caller like any other: it calls a use case, it does not reimplement one. |
+> | **Custom endpoints** | Edge of the hexagon | See [ENDPOINTS.md](ENDPOINTS.md). |
+> | **Custom admin components** | Outside the hexagon | They render *inside the CMS*, take Payload props and speak Payload types. Do not map them to domain entities. |
+> | **Localization** | Outside the hexagon | A schema concern. It changes the shape of the wire contract, so it changes the DTO. |
+>
+> **Known debt in this project:** `src/providers/Auth/index.tsx` makes six raw `fetch` calls to `/api/users/*`. That is exactly the transactional logic this architecture removes from presentation, and it is the next module to build.
+>
+> See [HEXAGONAL.md](HEXAGONAL.md).
+
 ## Authentication
 
 ### Login

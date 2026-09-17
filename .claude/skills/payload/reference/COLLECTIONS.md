@@ -2,6 +2,24 @@
 
 Complete reference for collection configurations and patterns.
 
+> **Position: outside the hexagon. A collection defines the wire contract.**
+>
+> Payload is the external system here; you configure it, you do not wrap it. But every change in this file has a downstream consequence the compiler will not point at:
+>
+> **Changing a collection means revisiting that domain's DTO and mapper.**
+>
+> `pnpm generate:types` regenerates `@/payload-types`, and because the DTO is expressed as a *view* over those types (`Pick`, `Partial`), a removed field fails to compile — which is the point. But a **renamed** field, or one whose meaning changed while its type did not, compiles perfectly and reaches the view as `undefined`. Nothing throws.
+>
+> After editing a collection:
+>
+> ```bash
+> pnpm generate:types
+> npx tsc --noEmit                    # DTO views catch removals
+> pnpm exec vitest run src/modules    # mappers catch the rest
+> ```
+>
+> Do not model the domain entity on the collection. The collection is shaped by editorial and storage needs; the entity is shaped by what the views render. They drift on purpose. See [HEXAGONAL.md](HEXAGONAL.md).
+
 ## Basic Collection
 
 ```ts

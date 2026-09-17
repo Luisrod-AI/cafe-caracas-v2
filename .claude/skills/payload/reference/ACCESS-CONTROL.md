@@ -2,6 +2,29 @@
 
 Complete reference for access control patterns across collections, fields, and globals.
 
+> **Position: outside the hexagon. This is the real trust boundary.**
+>
+> Access control runs on the server, inside the CMS, and it is the only thing actually protecting the data. The frontend domain layer never reimplements it, mirrors it, or works around it.
+>
+> **The rule for repositories:** ask, do not filter.
+>
+> ```ts
+> // ✅ the CMS decides what this caller may see
+> await payload.find({ collection: 'products', overrideAccess: false })
+>
+> // ❌ the repository decides — a lie, and a leak
+> const all = await payload.find({ collection: 'products' })   // admin privileges
+> return all.docs.filter((d) => d._status === 'published')     // filtered after the fact
+> ```
+>
+> The second one already read every draft into memory. Any bug downstream — a log line, an error page, a cache entry — exposes what the rule was supposed to withhold. A mapper that drops fields for "permission" reasons has the same problem: the data already crossed the boundary.
+>
+> The one legitimate `overrideAccess: true` in presentation-adjacent code is draft preview, where the document is by definition not readable by the public rule. It is scoped to that: see `src/modules/catalog/infrastructure/repositories/productDocumentSource.ts`, where it is tied to Next's `draftMode()` and nothing else.
+>
+> Practical consequence: **a domain entity is not a permission boundary.** Do not model "fields an editor may see" as a domain type. Model it as access control here, and let the DTO reflect whatever comes back.
+>
+> See [HEXAGONAL.md](HEXAGONAL.md).
+
 ## At a Glance
 
 | Feature               | Scope                                                     | Returns                | Use Case                           |

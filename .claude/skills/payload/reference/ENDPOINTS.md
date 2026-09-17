@@ -2,6 +2,28 @@
 
 Custom REST API endpoints extend Payload's auto-generated CRUD operations with custom logic, authentication flows, webhooks, and integrations.
 
+> **Position: the edge of the hexagon, on the server side.**
+>
+> An endpoint is a **port into** the application, the mirror image of a repository, which is a port out of it. The same rule applies to both: the handler is a translator, not a place for logic.
+>
+> ```ts
+> // ✅ the handler reads the request, delegates, and shapes the response
+> handler: async (req) => {
+>   const result = await reorderProducts({ ids: await req.json(), req })
+>   return Response.json(result)
+> }
+>
+> // ❌ business rules inline in the handler
+> handler: async (req) => {
+>   const body = await req.json()
+>   if (body.total > 1000 && !body.approvedBy) { /* …pricing policy… */ }
+> }
+> ```
+>
+> Rules that live in a handler cannot be reused by a server component, a job, or a hook, and cannot be tested without constructing a `Request`. Put them in `src/modules/<domain>/application/` and let both the endpoint and the repository call them.
+>
+> An endpoint is worth adding when a *client* needs an operation the generated CRUD does not express. If only server code needs it, a use case is enough — do not pay for an HTTP hop, and on Workers a subrequest, to call your own process. See [HEXAGONAL.md](HEXAGONAL.md).
+
 ## Quick Reference
 
 ### Endpoint Configuration

@@ -2,6 +2,38 @@
 
 Complete reference for querying data across Local API, REST, and GraphQL.
 
+> **Where this code lives: `src/modules/<domain>/infrastructure/repositories/` — nowhere else.**
+>
+> Everything in this document is *edge of the hexagon* code. A query in a page or component puts its field selection and its access rules somewhere no other surface can reuse or verify. ESLint rejects `getPayload` in `src/app/`, `src/components/` and `src/blocks/`.
+>
+> A query never returns what it fetched. It returns domain entities, through a mapper. See [HEXAGONAL.md](HEXAGONAL.md).
+
+## Local API and REST are two adapters of one port
+
+Payload exposes the same data twice. Which one is correct depends on **where the code runs**, not on what it wants — so both implement the same interface and the caller picks neither.
+
+| | Local API | REST API |
+| --- | --- | --- |
+| Entry | `getPayload({ config })` | `fetch('/api/…')` |
+| Runs in | Server components, route handlers | Browser, and anywhere |
+| Cost | In process, no HTTP hop | One request — on Cloudflare Workers, one **subrequest** |
+| Access control | Bypassed by default — **must** pass `overrideAccess: false` | Enforced by the server |
+| Bundle impact | Pulls the entire Payload config | None |
+
+```ts
+// domain/repositories/IProductRepository.ts — the port
+export interface IProductRepository {
+  list(query: ProductQuery): Promise<ProductPage>
+}
+
+// infrastructure/repositories/PayloadLocalProductRepository.ts
+// infrastructure/repositories/PayloadRestProductRepository.ts
+```
+
+Because the bundle impact is asymmetric, the two are exposed through **separate barrels** — `@/modules/<d>/server` and `@/modules/<d>` — not one function with a `typeof window` branch. A runtime branch keeps the server adapter in the client bundle, because the bundler cannot prove it is dead.
+
+Share the query translation between them. Duplicating a `where` builder is the fastest way to make the server-rendered grid and a client-side refetch disagree about what "the same page" means. Worked example: `src/modules/catalog/infrastructure/repositories/productQuery.ts`.
+
 ## Query Operators
 
 ```ts
@@ -272,3 +304,15 @@ mutation {
 - Index frequently queried fields
 - Use `virtual` fields for computed data
 - Cache expensive operations in hook `context`
+
+### On Cloudflare Workers this is not just performance
+
+**Every database query is one HTTP subrequest** when the database is Turso. The per-invocation budget is 50 on the free plan and 10,000 on paid, and a list view that expands relationships pays per row.
+
+That turns three habits into requirements, and `src/modules/catalog` follows all three:
+
+- **Cap `depth` deliberately.** `depth: 1` expands the gallery image and categories the grid renders. `depth: 2` would additionally expand each category's own relationships — data no view reads, paid for on every row.
+- **Keep join fields out of list selections.** Selecting a join field costs one extra query *per row*.
+- **Query through the relationship instead of resolving it first.** `{ 'categories.slug': { equals: slug } }` is one round trip; fetching the category to get its id and then filtering by id is two.
+
+See [CLOUDFLARE-TURSO.md](CLOUDFLARE-TURSO.md).

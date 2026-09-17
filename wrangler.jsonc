@@ -1,0 +1,57 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "cafe-caracas",
+  "main": ".open-next/worker.js",
+  "account_id": "9c37606553073541198e60cf225fd1fb",
+
+  // `nodejs_compat` is what lets Payload's Node-shaped imports resolve at all.
+  // `global_fetch_strictly_public` makes the Worker's own fetch behave like a
+  // public client, which Next.js relies on when it calls back into its routes.
+  "compatibility_date": "2025-08-15",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS",
+  },
+
+  // Both bindings point at the same bucket on purpose: OpenNext writes cache
+  // entries under an `incremental-cache/` prefix, so they cannot collide with
+  // the media keys Payload writes at the root.
+  "r2_buckets": [
+    {
+      // Uploads. Workers has no writable filesystem, so the Media collection's
+      // local `staticDir` cannot be used here.
+      "binding": "R2",
+      "bucket_name": "custom-proyect-1",
+    },
+    {
+      // Next's incremental cache. Without it every ISR and `unstable_cache`
+      // read is a miss, because the default store is the local filesystem.
+      "binding": "NEXT_INC_CACHE_R2_BUCKET",
+      "bucket_name": "custom-proyect-1",
+    },
+  ],
+
+  "observability": {
+    "enabled": true,
+  },
+
+  "vars": {
+    "PAYLOAD_LOG_LEVEL": "info",
+    "NEXT_PUBLIC_SERVER_URL": "https://cafe-caracas.jeelidevtestuser1.workers.dev",
+    "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY": "pk_test_",
+  },
+
+  // Secrets are NOT set here — they would end up in git. Set them with:
+  //   wrangler secret put DATABASE_URL
+  //   wrangler secret put DATABASE_AUTH_TOKEN
+  //   wrangler secret put PAYLOAD_SECRET
+  //   wrangler secret put STRIPE_SECRET_KEY
+  //   wrangler secret put STRIPE_WEBHOOKS_SIGNING_SECRET
+  //
+  // NEXT_PUBLIC_* variables are NOT secrets and cannot be set here either:
+  // Next.js inlines them into the client bundle during `next build`, so they
+  // must be present in the environment that runs the build. Putting one in
+  // `vars` would leave the built bundle still holding the old value.
+}

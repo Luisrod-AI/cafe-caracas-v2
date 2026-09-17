@@ -1,9 +1,14 @@
-import { PreviewSearchParams } from '@/app/(frontend)/next/preview/route'
+import { PreviewSearchParams } from '@/app/(app)/next/preview/route'
 import { PayloadRequest, CollectionSlug } from 'payload'
 
+/**
+ * Two template leftovers were fixed here: the route group is `(app)`, not
+ * `(frontend)`, and this project has no `posts` collection — it has `products`,
+ * which is what the Products collection's preview button actually needs.
+ */
 const collectionPrefixMap: Partial<Record<CollectionSlug, string>> = {
-  posts: '/posts',
   pages: '',
+  products: '/products',
 }
 
 type Props = {

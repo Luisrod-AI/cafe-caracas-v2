@@ -41,3 +41,12 @@ next-env.d.ts
 
 public/media
 
+# local sqlite database (development only — production uses Turso)
+*.db
+*.db-shm
+*.db-wal
+
+# cloudflare / opennext build output
+.open-next
+.wrangler
+cloudflare-env.d.ts

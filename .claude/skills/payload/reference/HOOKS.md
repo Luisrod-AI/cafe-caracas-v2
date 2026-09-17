@@ -2,6 +2,28 @@
 
 Complete reference for collection hooks, field hooks, and hook context patterns.
 
+> **Position: outside the hexagon. A hook is server-side CMS logic, not frontend domain logic.**
+>
+> A hook runs inside Payload, on every write, whatever the origin — the admin panel, a seed script, the REST API, a repository. That reach is exactly what makes it the right place for invariants, and the wrong place for anything a view needs to know about.
+>
+> **If a rule lives in a hook, the frontend does not duplicate it.** Two copies of "the slug is derived from the title" drift, and the one the user sees is whichever ran last. Let the hook own it and read the result back.
+>
+> Which side a rule belongs on:
+>
+> | Rule | Where | Why |
+> | --- | --- | --- |
+> | Derive a slug, stamp an author, normalise a value | **Hook** | Must hold no matter who writes |
+> | Cascade a delete, write an audit row | **Hook** | Needs the transaction — see `req` threading below |
+> | "Show the cheapest variant as the grid price" | **Mapper** | A presentation decision; storage is unchanged |
+> | "A cart cannot check out empty" | **`application/` use case** | Orchestration the user is told about, with a typed error |
+>
+> Two consequences for the modules:
+>
+> - **Hooks change the document a repository reads back.** A `beforeChange` that rewrites a field means the DTO must describe the *post-hook* shape, not what the caller sent.
+> - **`req.context` flags are CMS-internal.** They must never be plumbed through from a page or a domain entity; a repository sets them if needed, and nothing above it knows they exist.
+>
+> See [HEXAGONAL.md](HEXAGONAL.md).
+
 ## Collection Hooks
 
 ```ts

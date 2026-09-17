@@ -2,6 +2,15 @@
 
 Advanced access control patterns including context-aware access, time-based restrictions, factory functions, and production templates.
 
+> **Position: outside the hexagon.** Read the framing in [ACCESS-CONTROL.md](ACCESS-CONTROL.md) first — repositories *ask* with `overrideAccess: false`, they never filter after the fact.
+>
+> Two cautions specific to the advanced patterns below:
+>
+> - **Async access rules cost a query each.** On Cloudflare Workers that is a subrequest per rule per request, and access control runs on every operation. Prefer a query constraint (returning a `Where`) over an `await` whenever the rule can be expressed as one. See [CLOUDFLARE-TURSO.md](CLOUDFLARE-TURSO.md).
+> - **Field-level access returns a boolean, not a constraint.** A field the caller may not read comes back absent, not filtered — so the DTO must treat it as optional and the mapper must have an answer for "missing". Typing it as required is how a permission rule turns into a runtime crash for one role only.
+>
+> See [HEXAGONAL.md](HEXAGONAL.md).
+
 ## Context-Aware Access Patterns
 
 ### Locale-Specific Access

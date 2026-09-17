@@ -1,5 +1,7 @@
 'use client'
 
+import type { Product, Variant } from '@/payload-types'
+
 import { Media } from '@/components/Media'
 import { Message } from '@/components/Message'
 import { Price } from '@/components/Price'
@@ -18,6 +20,14 @@ import { cssVariables } from '@/cssVariables'
 import { CheckoutForm } from '@/components/forms/CheckoutForm'
 import { useAddresses, useCart, usePayments } from '@payloadcms/plugin-ecommerce/client/react'
 import { CheckoutAddresses } from '@/components/checkout/CheckoutAddresses'
+
+/**
+ * Same reason as in CartModal: the plugin's cart types are too loose for these
+ * callback parameters to be inferred. They move into a `cart` module's DTO when
+ * checkout is migrated.
+ */
+type GalleryEntry = NonNullable<Product['gallery']>[number]
+type VariantOptionRef = Variant['options'][number]
 import { CreateAddressModal } from '@/components/addresses/CreateAddressModal'
 import { Address } from '@/payload-types'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -373,14 +383,14 @@ export const CheckoutPage: React.FC = () => {
               if (isVariant) {
                 price = variant?.priceInUSD
 
-                const imageVariant = product.gallery?.find((item) => {
+                const imageVariant = product.gallery?.find((item: GalleryEntry) => {
                   if (!item.variantOption) return false
                   const variantOptionID =
                     typeof item.variantOption === 'object'
                       ? item.variantOption.id
                       : item.variantOption
 
-                  const hasMatch = variant?.options?.some((option) => {
+                  const hasMatch = variant?.options?.some((option: VariantOptionRef) => {
                     if (typeof option === 'object') return option.id === variantOptionID
                     else return option === variantOptionID
                   })
@@ -408,7 +418,7 @@ export const CheckoutPage: React.FC = () => {
                       {variant && typeof variant === 'object' && (
                         <p className="text-sm font-mono text-primary/50 tracking-widest">
                           {variant.options
-                            ?.map((option) => {
+                            ?.map((option: VariantOptionRef) => {
                               if (typeof option === 'object') return option.label
                               return null
                             })

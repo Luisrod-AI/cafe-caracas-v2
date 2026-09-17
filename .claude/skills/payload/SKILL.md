@@ -7,10 +7,36 @@ description: Use when working with Payload CMS projects (payload.config.ts, coll
 
 Payload is a Next.js native CMS with TypeScript-first architecture, providing admin panel, database management, REST/GraphQL APIs, authentication, and file storage.
 
+## Architecture (mandatory)
+
+**Before writing any code that reads or writes data, read [HEXAGONAL.md](reference/HEXAGONAL.md).**
+
+This project separates transactional logic from presentation. Data access lives in per-domain modules under `src/modules/<domain>/`; `src/app/` only renders. The rules are enforced by `no-restricted-imports` zones in `eslint.config.mjs`, so violating them fails the build rather than the review.
+
+The distinction that orders the rest of this skill:
+
+- **Outside the hexagon** — collections, fields, hooks, access control, plugins. Here Payload *is* the external system; you configure it, you do not wrap it. Docs: COLLECTIONS, FIELDS, FIELD-TYPE-GUARDS, HOOKS, ACCESS-CONTROL(-ADVANCED), PLUGIN-DEVELOPMENT.
+- **The edge of the hexagon** — queries, endpoints, transports. This code lives only in `infrastructure/repositories/`. Docs: QUERIES, ENDPOINTS, ADAPTERS, ADVANCED.
+
+The three rules broken most often:
+
+1. No `getPayload()` in a page, component or block. Use a repository.
+2. `@/payload-types` is importable only inside `infrastructure/dto/`.
+3. Map field by field. Never `...dto` — it fails silently.
+
+Worked example: `src/modules/catalog/`.
+
 ## Quick Reference
 
 | Task                     | Solution                                  | Details                                                                                                                          |
 | ------------------------ | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Fetch data for a page    | Repository from `@/modules/<d>/server`    | [HEXAGONAL.md#the-six-rules](reference/HEXAGONAL.md#the-six-rules)                                                               |
+| Fetch data in the browser| Repository from `@/modules/<d>`           | [HEXAGONAL.md#6-one-port-two-adapters](reference/HEXAGONAL.md#6-one-port-two-adapters)                                           |
+| Add a new domain         | Four folders + two barrels                | [HEXAGONAL.md#folder-template](reference/HEXAGONAL.md#folder-template)                                                          |
+| Translate CMS → app      | DTO + explicit mapper                     | [HEXAGONAL.md#5-mapping-is-explicit-field-by-field--never-dto](reference/HEXAGONAL.md#5-mapping-is-explicit-field-by-field--never-dto) |
+| Typed failures           | Module error kind, `null` for "not found" | [HEXAGONAL.md#errors](reference/HEXAGONAL.md#errors)                                                                            |
+| Deploy to Cloudflare     | `pnpm cf:deploy`                          | [CLOUDFLARE-TURSO.md#deploy-runbook](reference/CLOUDFLARE-TURSO.md#deploy-runbook)                                               |
+| Local vs Turso database  | `DATABASE_URL` scheme decides             | [CLOUDFLARE-TURSO.md#database-one-adapter-two-destinations](reference/CLOUDFLARE-TURSO.md#database-one-adapter-two-destinations) |
 | Auto-generate slugs      | `slugField()`                             | [FIELDS.md#slug-field-helper](reference/FIELDS.md#slug-field-helper)                                                             |
 | Restrict content by user | Access control with query                 | [ACCESS-CONTROL.md#row-level-security-with-complex-queries](reference/ACCESS-CONTROL.md#row-level-security-with-complex-queries) |
 | Local API user ops       | `user` + `overrideAccess: false`          | [QUERIES.md#access-control-in-local-api](reference/QUERIES.md#access-control-in-local-api)                                       |
@@ -49,32 +75,38 @@ pnpm dev
 
 ### Minimal Config
 
+This project uses **SQLite via libSQL** — a local file in development, Turso in production. The database and storage wiring is extracted to `src/lib/` so `payload.config.ts` stays readable; see [CLOUDFLARE-TURSO.md](reference/CLOUDFLARE-TURSO.md).
+
 ```ts
 import { buildConfig } from 'payload'
-import { mongooseAdapter } from '@payloadcms/db-mongodb'
 import { lexicalEditor } from '@payloadcms/richtext-lexical'
 import path from 'path'
 import { fileURLToPath } from 'url'
 
+import { databaseAdapter } from '@/lib/database'
+import { cloudflareLogger, isWorkersRuntime } from '@/lib/logger'
+import { storagePlugins } from '@/lib/storage'
+
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
 
+// Resolved before buildConfig: the R2 binding is only readable asynchronously.
+const storage = await storagePlugins()
+
 export default buildConfig({
-  admin: {
-    user: 'users',
-    importMap: {
-      baseDir: path.resolve(dirname),
-    },
-  },
-  collections: [Users, Media],
+  admin: { user: 'users' },
+  collections: [Users, Pages, Categories, Media],
+  db: databaseAdapter,
   editor: lexicalEditor(),
-  secret: process.env.PAYLOAD_SECRET,
+  // pino-pretty cannot start on workerd.
+  ...(isWorkersRuntime ? { logger: cloudflareLogger } : {}),
+  plugins: [...plugins, ...storage],
+  secret: process.env.PAYLOAD_SECRET || '',
   typescript: {
     outputFile: path.resolve(dirname, 'payload-types.ts'),
   },
-  db: mongooseAdapter({
-    url: process.env.DATABASE_URL,
-  }),
+  // `sharp` is deliberately NOT passed — it is a native binary and cannot run
+  // on Cloudflare Workers.
 })
 ```
 
@@ -205,32 +237,44 @@ For all query operators and REST/GraphQL examples, see [QUERIES.md](reference/QU
 
 ### Getting Payload Instance
 
+`getPayload()` belongs in **one** place: a repository under `src/modules/<domain>/infrastructure/repositories/`. ESLint rejects it anywhere in `src/app/`, `src/components/` or `src/blocks/`.
+
 ```ts
-// In API routes (Next.js)
+// src/modules/blog/infrastructure/repositories/PayloadLocalPostRepository.ts
+import configPromise from '@payload-config'
 import { getPayload } from 'payload'
-import config from '@payload-config'
 
-export async function GET() {
-  const payload = await getPayload({ config })
+export class PayloadLocalPostRepository implements IPostRepository {
+  async list(query: PostQuery): Promise<PostPage> {
+    const payload = await getPayload({ config: configPromise })
 
-  const posts = await payload.find({
-    collection: 'posts',
-  })
+    const result = await payload.find({
+      collection: 'posts',
+      depth: 1,
+      select: buildPostSelect(),
+      overrideAccess: false, // let the CMS decide what is visible
+      where: buildPostWhere(query),
+    })
 
-  return Response.json(posts)
-}
-
-// In Server Components
-import { getPayload } from 'payload'
-import config from '@payload-config'
-
-export default async function Page() {
-  const payload = await getPayload({ config })
-  const { docs } = await payload.find({ collection: 'posts' })
-
-  return <div>{docs.map(post => <h1 key={post.id}>{post.title}</h1>)}</div>
+    return toPostPage(result) // domain types leave, never CMS documents
+  }
 }
 ```
+
+```tsx
+// src/app/(app)/blog/page.tsx — the page asks, it does not query
+import { getPostRepository } from '@/modules/blog/server'
+
+export default async function Page() {
+  const posts = await getPostRepository().list({})
+
+  return <div>{posts.results.map((post) => <h1 key={post.id}>{post.title}</h1>)}</div>
+}
+```
+
+Why the page cannot just call `payload.find()`: the query, its field selection and its access rules would live inside a component, where no other surface can reuse or verify them. That is how two pages end up disagreeing about what "a published post" means.
+
+See [HEXAGONAL.md](reference/HEXAGONAL.md).
 
 ## Security Pitfalls
 
@@ -335,23 +379,35 @@ See [HOOKS.md#context](reference/HOOKS.md#context).
 
 ## Project Structure
 
+Two halves. The CMS configuration is the external system; the modules are the application.
+
 ```txt
 src/
-├── app/
-│   ├── (frontend)/
-│   │   └── page.tsx
-│   └── (payload)/
-│       └── admin/[[...segments]]/page.tsx
-├── collections/
-│   ├── Posts.ts
-│   ├── Media.ts
-│   └── Users.ts
+├── app/                      # PRESENTATION ONLY — renders domain entities
+│   ├── (app)/                #   storefront
+│   └── (payload)/            #   the CMS's own mount point
+├── components/               # PRESENTATION — takes domain types as props
+├── blocks/                   # PRESENTATION
+│
+├── modules/                  # ── THE HEXAGON ──────────────────────────────
+│   └── catalog/
+│       ├── domain/
+│       │   ├── entities/     #   shapes the app speaks (no CMS imports)
+│       │   ├── repositories/ #   ports
+│       │   └── errors/
+│       ├── application/      #   use cases, when there is orchestration
+│       ├── infrastructure/
+│       │   ├── dto/          #   the ONLY place @/payload-types may appear
+│       │   ├── mappers/      #   explicit, field by field
+│       │   └── repositories/ #   the ONLY place getPayload/fetch may appear
+│       ├── index.ts          #   public barrel — safe anywhere
+│       └── server.ts         #   server barrel — 'server-only'
+│
+├── collections/              # ── OUTSIDE THE HEXAGON: the CMS itself ──────
+├── access/
 ├── globals/
-│   └── Header.ts
-├── components/
-│   └── CustomField.tsx
-├── hooks/
-│   └── slugify.ts
+├── plugins/
+├── lib/                      # database / logger / storage wiring
 └── payload.config.ts
 ```
 
@@ -382,6 +438,10 @@ import type { Post, User } from '@/payload-types'
 8. **MongoDB transactions** require replica set configuration
 9. **SQLite transactions** are disabled by default; enable with `transactionOptions: {}`
 10. **Point fields** are not supported in SQLite
+11. **A spread in a mapper** (`...dto`) fails silently — the view reads `undefined` and nothing throws
+12. **`getPayload()` outside a repository** fails lint, not review
+13. **Exporting a Local adapter from the shared barrel** ships the whole CMS config to the browser; use `server.ts`
+14. **`push: true` against Turso** writes schema at runtime; it is gated on the URL scheme, not on `NODE_ENV`
 
 ## Best Practices
 
@@ -419,6 +479,17 @@ import type { Post, User } from '@/payload-types'
 
 ### Organization
 
+The layer contract, in full — see [HEXAGONAL.md](reference/HEXAGONAL.md) for the reasoning:
+
+1. `domain/` imports nothing — no CMS, no React, no Next
+2. `@/payload-types` only inside `infrastructure/dto/`
+3. `getPayload()` / `fetch('/api/…')` only inside `infrastructure/repositories/`
+4. Presentation imports the module barrel, never its internals
+5. Mapping is explicit field by field, never `...dto`
+6. One port, two adapters — and two barrels, because `server.ts` would otherwise ship the whole CMS config to the browser
+
+For the CMS side (outside the hexagon):
+
 - Keep collections in separate files
 - Extract access control to `access/` directory
 - Extract hooks to `hooks/` directory
@@ -426,6 +497,20 @@ import type { Post, User } from '@/payload-types'
 - Document complex access control with comments
 
 ## Reference Documentation
+
+### Architecture — read first
+
+- **[HEXAGONAL.md](reference/HEXAGONAL.md)** - The layer contract, folder template, ports and adapters, enforcement. Mandatory before writing data access.
+- **[CLOUDFLARE-TURSO.md](reference/CLOUDFLARE-TURSO.md)** - Workers deployment, the libSQL resolution trap, migrations, plan limits.
+
+### The edge of the hexagon — code that talks to the CMS
+
+- **[QUERIES.md](reference/QUERIES.md)** - Query operators, Local vs REST as two adapters of one port
+- **[ENDPOINTS.md](reference/ENDPOINTS.md)** - Custom endpoints as server-side ports
+- **[ADAPTERS.md](reference/ADAPTERS.md)** - Payload's db/storage/email adapters (*not* the hexagon's adapters), transactions
+- **[ADVANCED.md](reference/ADVANCED.md)** - Auth, jobs, localization, custom components
+
+### Outside the hexagon — configuring the CMS
 
 - **[FIELDS.md](reference/FIELDS.md)** - All field types, validation, admin options
 - **[FIELD-TYPE-GUARDS.md](reference/FIELD-TYPE-GUARDS.md)** - Type guards for runtime field type checking and narrowing

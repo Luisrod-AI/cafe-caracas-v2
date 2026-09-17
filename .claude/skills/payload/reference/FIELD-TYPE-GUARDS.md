@@ -2,6 +2,23 @@
 
 Complete reference with detailed examples and patterns. See [FIELDS.md](FIELDS.md#field-type-guards) for quick reference table of all guards.
 
+> **Position: outside the hexagon.** These guards narrow Payload's *field config* objects — they are for code that inspects or transforms a collection schema: plugins, field factories, migration helpers.
+>
+> **They are not the guards a mapper needs.** A mapper narrows *documents*, not field definitions, and the question it asks is different: "did this relationship come back expanded or as a bare id?"
+>
+> ```ts
+> // infrastructure/dto/ProductDto.ts
+> export type MaybeExpanded<T> = number | string | T
+>
+> export function isExpanded<T extends object>(ref: MaybeExpanded<T> | null | undefined): ref is T {
+>   return typeof ref === 'object' && ref !== null
+> }
+> ```
+>
+> That guard belongs in `infrastructure/dto/`, beside the contract it narrows. Keeping the two families of guard apart matters: reaching for a schema guard inside a mapper is a sign the mapper is inspecting the CMS instead of translating a document.
+>
+> See [HEXAGONAL.md](HEXAGONAL.md).
+
 ## Structural Guards
 
 ### fieldHasSubFields

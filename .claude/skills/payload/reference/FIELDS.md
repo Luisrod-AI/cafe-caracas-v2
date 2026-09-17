@@ -2,6 +2,22 @@
 
 Complete reference for all Payload field types with examples.
 
+> **Position: outside the hexagon. Fields *are* the wire contract.**
+>
+> Every field added here becomes a key in `@/payload-types`, and therefore a decision for `infrastructure/dto/` and `infrastructure/mappers/`. Adding a field does nothing on its own — it reaches a view only when the DTO names it and the mapper translates it.
+>
+> Three field types where the CMS shape and the domain shape differ most, and the mapper has to do real work:
+>
+> | Field type | What arrives | What the domain wants |
+> | --- | --- | --- |
+> | `relationship` / `upload` | An id **or** the expanded document, depending on `depth` | One shape. Guard with `isExpanded()`, and decide explicitly what an unexpanded value means — dropping it usually beats rendering a bare id. |
+> | `join` | A paginated envelope, and one extra query per row | Usually: not in list queries at all. See [QUERIES.md](QUERIES.md#on-cloudflare-workers-this-is-not-just-performance). |
+> | `richText` | A lexical JSON tree | Opaque. The domain carries it; only the presentation layer interprets it. |
+>
+> Note also that `required: true` here is a **write-time** guarantee, not a read-time one: rows saved before the field existed arrive empty anyway. The mapper needs a fallback. `src/modules/catalog` does this for image `alt` text, where an empty string would ship an unlabelled image to a screen reader.
+>
+> See [HEXAGONAL.md](HEXAGONAL.md) and [COLLECTIONS.md](COLLECTIONS.md).
+
 ## Text Field
 
 ```ts

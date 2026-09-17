@@ -1,4 +1,3 @@
-import { sqliteAdapter } from '@payloadcms/db-sqlite'
 import {
   BoldFeature,
   EXPERIMENTAL_TableFeature,
@@ -20,10 +19,20 @@ import { Pages } from '@/collections/Pages'
 import { Users } from '@/collections/Users'
 import { Footer } from '@/globals/Footer'
 import { Header } from '@/globals/Header'
+import { databaseAdapter } from '@/lib/database'
+import { cloudflareLogger, isWorkersRuntime } from '@/lib/logger'
+import { storagePlugins } from '@/lib/storage'
 import { plugins } from './plugins'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
+
+/**
+ * Resolved before `buildConfig` because the R2 binding is only readable through
+ * an async Cloudflare call, and the plugins list has to be complete by the time
+ * the config is built.
+ */
+const storage = await storagePlugins()
 
 export default buildConfig({
   admin: {
@@ -38,11 +47,7 @@ export default buildConfig({
     user: Users.slug,
   },
   collections: [Users, Pages, Categories, Media],
-  db: sqliteAdapter({
-    client: {
-      url: process.env.DATABASE_URL || '',
-    },
-  }),
+  db: databaseAdapter,
   editor: lexicalEditor({
     features: () => {
       return [
@@ -81,7 +86,13 @@ export default buildConfig({
   //email: nodemailerAdapter(),
   endpoints: [],
   globals: [Header, Footer],
-  plugins,
+  /**
+   * Swapped only inside workerd, where pino's transport cannot start. Anywhere
+   * else the default logger is kept — it is readable in a terminal, and the
+   * JSON one is not.
+   */
+  ...(isWorkersRuntime ? { logger: cloudflareLogger } : {}),
+  plugins: [...plugins, ...storage],
   secret: process.env.PAYLOAD_SECRET || '',
   typescript: {
     outputFile: path.resolve(dirname, 'payload-types.ts'),
