@@ -1,13 +1,19 @@
 import configPromise from '@payload-config'
-import { getPayload } from 'payload'
 import type { Where } from 'payload'
+import { getPayload } from 'payload'
 
-import type { CafeDetail, CafePage, CafeQuery } from '../../domain/entities/Cafe'
-import { CAFES_PAGE_SIZE } from '../../domain/entities/Cafe'
+import {
+  AMENITY_LABELS,
+  CAFES_PAGE_SIZE,
+  type CafeConceptFilter,
+  type CafeDetail,
+  type CafePage,
+  type CafeQuery,
+} from '../../domain/entities/Cafe'
 import { CAFE_ERROR_KIND, CafeError } from '../../domain/errors/CafeErrors'
 import type { ICafeRepository } from '../../domain/repositories/ICafeRepository'
-import { CAFE_LIST_FIELDS } from '../dto/CafeDto'
 import type { CafeDto, CafeListItemDto } from '../dto/CafeDto'
+import { CAFE_LIST_FIELDS } from '../dto/CafeDto'
 import { toCafeDetail, toCafePage } from '../mappers/cafeMapper'
 
 /**
@@ -38,15 +44,169 @@ async function transact<T>(run: () => Promise<T>): Promise<T> {
   }
 }
 
+function getMinimumPrice(cost: string | null | undefined): number | null {
+  if (!cost) return null
+
+  const match = String(cost).match(/\d+(?:\.\d+)?/)
+
+  if (!match) return null
+
+  const value = Number(match[0])
+
+  return Number.isFinite(value) ? value : null
+}
+
+function matchesPriceFilter(
+  cost: string | null | undefined,
+  priceFilter: CafeQuery['price'],
+): boolean {
+  if (!priceFilter) return true
+
+  const minimumPrice = getMinimumPrice(cost)
+
+  if (minimumPrice === null) return false
+
+  switch (priceFilter) {
+    case 'under10':
+      return minimumPrice <= 10
+
+    case '10to20':
+      return minimumPrice > 10 && minimumPrice <= 20
+
+    case '20to30':
+      return minimumPrice > 20 && minimumPrice <= 30
+
+    case 'over30':
+      return minimumPrice > 30
+
+    default:
+      return true
+  }
+}
+
+const ZONE_GROUPS: Record<string, string[]> = {
+  centro: ['centro', 'centro este', 'centro oeste'],
+  este: ['este', 'sureste'],
+  oeste: ['oeste'],
+}
+
+/**
+ * Normalizes user input so accented and unaccented text are treated equally.
+ *
+ * Example:
+ * "Café" -> "cafe"
+ * "CAFÉ" -> "cafe"
+ * "cafe" -> "cafe"
+ */
+function normalizeSearchText(value: unknown): string {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+}
+
+/**
+ * Converts confirmed amenities into searchable labels.
+ *
+ * Example:
+ * {
+ *   wifi: 'yes',
+ *   terrace: 'yes'
+ * }
+ *
+ * becomes:
+ * ['WiFi', 'Terraza']
+ */
+function getAmenitySearchLabels(amenities: unknown): string[] {
+  if (!amenities || typeof amenities !== 'object') {
+    return []
+  }
+
+  return Object.entries(amenities as Record<string, unknown>)
+    .filter(([, value]) => value === 'yes')
+    .map(
+      ([key]) =>
+        AMENITY_LABELS[key as keyof typeof AMENITY_LABELS] ?? key,
+    )
+}
+
+/**
+ * Searches across the information that users are likely to type.
+ *
+ * The search is intentionally broader than just the cafe name:
+ * - name
+ * - branch
+ * - category
+ * - notes
+ * - municipality
+ * - zone
+ * - slug
+ * - cost
+ * - confirmed amenities
+ *
+ * Accents are ignored, and multiple words must all be present.
+ */
+function matchesSearchFilter(
+  doc: CafeListItemDto,
+  search: string,
+): boolean {
+  const normalizedSearch = normalizeSearchText(search)
+
+  if (!normalizedSearch) {
+    return true
+  }
+
+  const searchableText = normalizeSearchText(
+    [
+      doc.name,
+      doc.branch,
+      doc.category,
+      doc.notes,
+      doc.municipality,
+      doc.zone,
+      doc.slug,
+      doc.cost,
+      ...getAmenitySearchLabels(doc.amenities),
+    ]
+      .filter(Boolean)
+      .join(' '),
+  )
+
+  const searchTerms = normalizedSearch.split(/\s+/)
+
+  return searchTerms.every((term) =>
+    searchableText.includes(term),
+  )
+}
+
 function buildWhere(query: CafeQuery): undefined | Where {
   const and: Where[] = []
 
-  if (query.search) {
-    and.push({ name: { like: query.search } })
+  if (query.zone) {
+    const zones = ZONE_GROUPS[query.zone]
+
+    if (zones?.length) {
+      and.push({
+        zone: {
+          in: zones,
+        },
+      })
+    }
   }
 
-  if (query.zone) {
-    and.push({ zone: { equals: query.zone } })
+  if (query.concepts && query.concepts.length > 0) {
+    const conceptConditions: Where[] = query.concepts.map(
+      (concept: CafeConceptFilter) => ({
+        [`amenities.${concept}`]: {
+          equals: 'yes',
+        },
+      }),
+    )
+
+    and.push({
+      or: conceptConditions,
+    })
   }
 
   return and.length > 0 ? { and } : undefined
@@ -54,7 +214,9 @@ function buildWhere(query: CafeQuery): undefined | Where {
 
 /** Built from the DTO's own field list so `select` and type cannot drift. */
 function buildSelect(): Record<string, true> {
-  return Object.fromEntries(CAFE_LIST_FIELDS.map((f) => [f, true])) as Record<string, true>
+  return Object.fromEntries(
+    CAFE_LIST_FIELDS.map((field) => [field, true]),
+  ) as Record<string, true>
 }
 
 export class PayloadLocalCafeRepository implements ICafeRepository {
@@ -62,27 +224,90 @@ export class PayloadLocalCafeRepository implements ICafeRepository {
     return transact(async () => {
       const payload = await getPayload({ config: configPromise })
 
+      const needsSearchFiltering = Boolean(query.search)
+
       const result = await payload.find({
         collection: 'cafes',
-        /**
-         * `1` expands the media relationship the card renders. `2` would also
-         * expand whatever those documents point at — data no view reads, paid
-         * for on every one of 110 rows.
-         */
         depth: 1,
-        limit: query.limit ?? CAFES_PAGE_SIZE,
-        /**
-         * Access control decides what an anonymous visitor may read. Left at
-         * its default `true`, this would return rows the public rule hides.
+
+        /*
+         * When search or price filtering is being done in memory,
+         * retrieve the complete filtered dataset first.
          */
+        limit:
+          query.price || needsSearchFiltering
+            ? undefined
+            : query.limit ?? CAFES_PAGE_SIZE,
+
         overrideAccess: false,
-        page: query.page ?? 1,
+
+        page:
+          query.price || needsSearchFiltering
+            ? undefined
+            : query.page ?? 1,
+
+        pagination:
+          query.price || needsSearchFiltering
+            ? false
+            : true,
+
         select: buildSelect(),
         sort: 'name',
         where: buildWhere(query),
       })
 
-      return toCafePage(result as unknown as Parameters<typeof toCafePage>[0])
+      let filteredDocs = result.docs as unknown as CafeListItemDto[]
+
+      /*
+       * Free-text search:
+       * accents are ignored and the search covers names, locations,
+       * categories, notes, slugs, prices and amenities.
+       */
+      if (query.search) {
+        filteredDocs = filteredDocs.filter((doc) =>
+          matchesSearchFilter(doc, query.search!),
+        )
+      }
+
+      /*
+       * Price filtering is still handled in application code because
+       * `cost` is stored as a flexible string.
+       */
+      if (query.price) {
+        filteredDocs = filteredDocs.filter((doc) =>
+          matchesPriceFilter(doc.cost, query.price),
+        )
+      }
+
+      /*
+       * If there are no in-memory filters, Payload already handled
+       * pagination for us.
+       */
+      if (!query.price && !query.search) {
+        return toCafePage(
+          result as unknown as Parameters<typeof toCafePage>[0],
+        )
+      }
+
+      /*
+       * Search and/or price filtering happened in memory,
+       * so pagination happens after filtering.
+       */
+      const pageSize = query.limit ?? CAFES_PAGE_SIZE
+      const page = query.page ?? 1
+      const start = (page - 1) * pageSize
+
+      const pagedDocs = filteredDocs.slice(
+        start,
+        start + pageSize,
+      )
+
+      return toCafePage({
+        docs: pagedDocs,
+        totalDocs: filteredDocs.length,
+        hasNextPage:
+          start + pageSize < filteredDocs.length,
+      })
     })
   }
 
@@ -96,12 +321,18 @@ export class PayloadLocalCafeRepository implements ICafeRepository {
         limit: 1,
         overrideAccess: false,
         pagination: false,
-        where: { slug: { equals: slug } },
+        where: {
+          slug: {
+            equals: slug,
+          },
+        },
       })
 
       const doc = result.docs.at(0)
 
-      return doc ? toCafeDetail(doc as unknown as CafeDto) : null
+      return doc
+        ? toCafeDetail(doc as unknown as CafeDto)
+        : null
     })
   }
 }

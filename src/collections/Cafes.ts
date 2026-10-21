@@ -1,5 +1,6 @@
-import { slugField } from 'payload'
+
 import type { CollectionConfig, Field } from 'payload'
+import { slugField } from 'payload'
 
 import { adminOnly } from '@/access/adminOnly'
 
@@ -83,13 +84,15 @@ const hoursFields: Field[] = WEEKDAYS.map(({ label, name }) => ({
  */
 const AMENITIES = [
   { label: 'WiFi', name: 'wifi' },
-  { label: 'Coworking', name: 'coworking' },
-  { label: 'Cozy', name: 'cozy' },
+  { label: 'Para trabajar', name: 'work' },
+  { label: 'Para pasar el rato', name: 'cozy' },
   { label: 'Terraza', name: 'terrace' },
   { label: 'Pet friendly', name: 'petFriendly' },
   { label: 'Estacionamiento', name: 'parking' },
   { label: 'Brunch', name: 'brunch' },
-  { label: 'Sightseeing', name: 'sightseeing' },
+  { label: 'Con vista', name: 'sightseeing' },
+  { label: 'Café de especialidad', name: 'specialtyCoffee' },
+  { label: 'Aire libre', name: 'outdoor' },
 ] as const
 
 const amenityFields: Field[] = AMENITIES.map(({ label, name }) => ({
@@ -371,10 +374,13 @@ export const Cafes: CollectionConfig = {
             {
               name: 'amenities',
               type: 'group',
-              fields: [{ type: 'row', fields: amenityFields.slice(0, 2) },
-                { type: 'row', fields: amenityFields.slice(2, 4) },
-                { type: 'row', fields: amenityFields.slice(4, 6) },
-                { type: 'row', fields: amenityFields.slice(6, 8) }],
+              fields: [
+  { type: 'row', fields: amenityFields.slice(0, 2) },
+  { type: 'row', fields: amenityFields.slice(2, 4) },
+  { type: 'row', fields: amenityFields.slice(4, 6) },
+  { type: 'row', fields: amenityFields.slice(6, 8) },
+  { type: 'row', fields: amenityFields.slice(8, 10) },
+],
               label: 'Servicios',
             },
           ],

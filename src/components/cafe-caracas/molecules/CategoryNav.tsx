@@ -1,11 +1,23 @@
-import { CategoryPill } from '../atoms/CategoryPill'
 import React from 'react'
+import { CategoryPill } from '../atoms/CategoryPill'
 
 const CATEGORIES = [
-  { href: '/cafe-caracas', isActive: true, label: 'Todo' },
-  { href: '/cafe-caracas?concept=coworking', isActive: false, label: 'Coworking' },
-  { href: '/cafe-caracas?concept=cozy', isActive: false, label: 'Cozy' },
-  { href: '/cafe-caracas?concept=sightseeing', isActive: false, label: 'Sightseeing' },
+  { href: '/cafe-caracas/search', isActive: true, label: 'Todo' },
+  {
+    href: '/cafe-caracas/search?concept=work',
+    isActive: false,
+    label: 'Para trabajar',
+  },
+  {
+    href: '/cafe-caracas/search?concept=cozy',
+    isActive: false,
+    label: 'Para pasar el rato',
+  },
+  {
+    href: '/cafe-caracas/search?concept=sightseeing',
+    isActive: false,
+    label: 'Con vista',
+  },
 ] as const
 
 /** The centred row of concept pills under the search bar. */

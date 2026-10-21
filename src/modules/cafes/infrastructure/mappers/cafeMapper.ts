@@ -104,7 +104,17 @@ export function toCafeSummary(dto: CafeListItemDto): CafeSummary {
     rating: typeof dto.rate === 'number' ? dto.rate : null,
     slug: dto.slug ?? '',
     tags: toTags(dto.category, dto.notes),
+    amenities: toAmenities(dto),
     zone: dto.municipality || dto.branch || dto.zone || 'Caracas',
+    coordinates:
+  dto.filterReady?.coordinates &&
+  typeof dto.latitude === 'number' &&
+  typeof dto.longitude === 'number'
+    ? {
+        latitude: dto.latitude,
+        longitude: dto.longitude,
+      }
+    : null,
   }
 }
 
@@ -133,12 +143,15 @@ function toHours(dto: CafeDto): Partial<Record<Weekday, OpeningHours>> {
  * `unknown` is dropped along with `no`: the detail page lists what a café HAS,
  * and an unverified flag is not a promise.
  */
-function toAmenities(dto: CafeDto): AmenityKey[] {
+function toAmenities(
+  dto: Pick<CafeDto, 'amenities'>,
+): AmenityKey[] {
   const source = dto.amenities
   if (!source) return []
 
   return AMENITY_ORDER.filter((key) => source[key] === 'yes')
 }
+
 
 /**
  * Turns a stored price into what the card shows.

@@ -1,6 +1,7 @@
 import * as migration_20260917_052312_baseline from './20260917_052312_baseline';
 import * as migration_20260917_134059_add_cafes from './20260917_134059_add_cafes';
 import * as migration_20260917_143546_add_cafe_menu from './20260917_143546_add_cafe_menu';
+import * as migration_20261002_155337_add_cafe_filters from './20261002_155337_add_cafe_filters';
 
 export const migrations = [
   {
@@ -16,6 +17,11 @@ export const migrations = [
   {
     up: migration_20260917_143546_add_cafe_menu.up,
     down: migration_20260917_143546_add_cafe_menu.down,
-    name: '20260917_143546_add_cafe_menu'
+    name: '20260917_143546_add_cafe_menu',
+  },
+  {
+    up: migration_20261002_155337_add_cafe_filters.up,
+    down: migration_20261002_155337_add_cafe_filters.down,
+    name: '20261002_155337_add_cafe_filters'
   },
 ];

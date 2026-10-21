@@ -16,12 +16,12 @@ type Props = {
  */
 export const SectionHeading: React.FC<Props> = ({ count, id, title }) => (
   <div className="mb-3.5 flex min-h-14 items-center justify-between gap-6">
-    <h2
+    <h1
       className="m-0 font-cc-display text-[43.2px] font-bold leading-none tracking-[-0.03em] text-cc-ink"
       id={id}
     >
       {title}
-    </h2>
+    </h1>
 
     <p aria-live="polite" className="m-0 shrink-0 text-[14.4px] font-semibold text-cc-brown">
       {count}
