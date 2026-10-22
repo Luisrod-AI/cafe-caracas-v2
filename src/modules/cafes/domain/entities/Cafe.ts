@@ -53,7 +53,9 @@ export interface CafeSummary {
   price: string | null
   /** At most two, mirroring the prototype's own truncation. */
   tags: string[]
+  amenities: AmenityKey[]
   imageUrl: string | null
+  coordinates: { latitude: number; longitude: number } | null
 }
 
 /** One dish in the featured menu. */
@@ -73,13 +75,15 @@ export interface MenuItem {
  */
 export const AMENITY_ORDER = [
   'wifi',
-  'coworking',
+  'work',
   'cozy',
   'terrace',
   'petFriendly',
   'parking',
   'brunch',
   'sightseeing',
+  'specialtyCoffee',
+  'outdoor',
 ] as const
 
 export type AmenityKey = (typeof AMENITY_ORDER)[number]
@@ -88,13 +92,15 @@ export type AmenityState = 'no' | 'unknown' | 'yes'
 
 export const AMENITY_LABELS: Record<AmenityKey, string> = {
   brunch: 'Brunch',
-  coworking: 'Coworking',
-  cozy: 'Acogedor',
+  cozy: 'Para pasar el rato',
+  outdoor: 'Aire libre',
   parking: 'Estacionamiento',
   petFriendly: 'Pet friendly',
   sightseeing: 'Con vista',
+  specialtyCoffee: 'Café de especialidad',
   terrace: 'Terraza',
   wifi: 'WiFi',
+  work: 'Para trabajar',
 }
 
 /** Everything the detail page renders, summary included. */
@@ -131,9 +137,37 @@ export interface CafePage {
   hasNextPage: boolean
 }
 
+export const CAFE_ZONE_FILTERS = [
+  'centro',
+  'este',
+  'oeste',
+] as const
+
+export type CafeZoneFilter = (typeof CAFE_ZONE_FILTERS)[number]
+
+export const CAFE_CONCEPT_FILTERS = [
+  'work',
+  'terrace',
+  'specialtyCoffee',
+  'petFriendly',
+  'parking',
+  'brunch',
+  'outdoor',
+  'cozy',
+] as const
+
+export type CafeConceptFilter = (typeof CAFE_CONCEPT_FILTERS)[number]
+
+export type CafePriceFilter =
+  | 'under10'
+  | '10to20'
+  | '20to30'
+  | 'over30'
 export interface CafeQuery {
   search?: string
-  zone?: string
+  zone?: CafeZoneFilter
+  concepts?: CafeConceptFilter[]
+  price?: CafePriceFilter
   limit?: number
   page?: number
 }

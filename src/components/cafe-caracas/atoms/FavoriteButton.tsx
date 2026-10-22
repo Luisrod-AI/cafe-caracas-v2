@@ -1,28 +1,70 @@
-import React from 'react'
+'use client'
+
+import React, { useEffect, useState } from 'react'
+
+import {
+  getFavoriteSlugs,
+  toggleFavorite,
+} from '../lib/favorites'
 
 type Props = {
-  /** Café name, used to build an accessible label. */
+  cafeSlug: string
   cafeName: string
 }
 
-/**
- * The heart on a card image.
- *
- * Inert on purpose: this page is a visual target, and a button that looks
- * interactive but stores nothing is worse than one that plainly does not yet.
- * It keeps its real `aria-label` so the markup does not have to change when the
- * behaviour arrives.
- *
- * It sits inside the card's link, so `stopPropagation` will be needed the day
- * it does something — noted here rather than added now, since an empty handler
- * is exactly the kind of code that gets copied without its reason.
- */
-export const FavoriteButton: React.FC<Props> = ({ cafeName }) => (
-  <button
-    aria-label={`Guardar ${cafeName} en favoritos`}
-    className="absolute right-3.5 top-3.5 grid h-[38px] w-[38px] place-items-center rounded-full border border-white/70 bg-[rgb(255_253_249_/_0.88)] text-[21px] leading-none text-cc-ink-strong backdrop-blur-[10px] transition-transform duration-200 hover:scale-105"
-    type="button"
-  >
-    ♡
-  </button>
-)
+export const FavoriteButton: React.FC<Props> = ({
+  cafeSlug,
+  cafeName,
+}) => {
+  const [favorite, setFavorite] = useState(false)
+
+  useEffect(() => {
+    const syncFavorite = () => {
+      setFavorite(getFavoriteSlugs().includes(cafeSlug))
+    }
+
+    syncFavorite()
+
+    window.addEventListener(
+      'caracas-cafe-favorites-changed',
+      syncFavorite,
+    )
+
+    return () => {
+      window.removeEventListener(
+        'caracas-cafe-favorites-changed',
+        syncFavorite,
+      )
+    }
+  }, [cafeSlug])
+
+  const handleClick = () => {
+    const nextFavorite = toggleFavorite(cafeSlug)
+    setFavorite(nextFavorite)
+  }
+
+  return (
+    <button
+      aria-label={
+        favorite
+          ? `Quitar ${cafeName} de favoritos`
+          : `Agregar ${cafeName} a favoritos`
+      }
+      aria-pressed={favorite}
+      className={`absolute right-3 top-3 z-20 grid h-10 w-10 place-items-center rounded-full border border-white/70 backdrop-blur-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cc-olive focus-visible:ring-offset-2 ${
+        favorite
+          ? 'scale-105 bg-cc-olive text-white'
+          : 'bg-white/90 text-cc-olive hover:scale-105 hover:bg-white'
+      }`}
+      onClick={handleClick}
+      type="button"
+    >
+      <span
+        aria-hidden="true"
+        className="text-[20px] leading-none"
+      >
+        {favorite ? '♥' : '♡'}
+      </span>
+    </button>
+  )
+}

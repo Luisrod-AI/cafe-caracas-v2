@@ -1099,13 +1099,15 @@ export interface Cafe {
   hoursVerified?: string | null;
   amenities?: {
     wifi?: ('unknown' | 'yes' | 'no') | null;
-    coworking?: ('unknown' | 'yes' | 'no') | null;
+    work?: ('unknown' | 'yes' | 'no') | null;
     cozy?: ('unknown' | 'yes' | 'no') | null;
     terrace?: ('unknown' | 'yes' | 'no') | null;
     petFriendly?: ('unknown' | 'yes' | 'no') | null;
     parking?: ('unknown' | 'yes' | 'no') | null;
     brunch?: ('unknown' | 'yes' | 'no') | null;
     sightseeing?: ('unknown' | 'yes' | 'no') | null;
+    specialtyCoffee?: ('unknown' | 'yes' | 'no') | null;
+    outdoor?: ('unknown' | 'yes' | 'no') | null;
   };
   /**
    * Los primeros cuatro se muestran por página en el detalle del café.
@@ -1594,13 +1596,15 @@ export interface CafesSelect<T extends boolean = true> {
     | T
     | {
         wifi?: T;
-        coworking?: T;
+        work?: T;
         cozy?: T;
         terrace?: T;
         petFriendly?: T;
         parking?: T;
         brunch?: T;
         sightseeing?: T;
+        specialtyCoffee?: T;
+        outdoor?: T;
       };
   menu?:
     | T

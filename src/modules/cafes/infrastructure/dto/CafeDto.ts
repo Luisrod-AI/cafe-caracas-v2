@@ -23,8 +23,12 @@ export const CAFE_LIST_FIELDS = [
   'municipality',
   'branch',
   'zone',
+  'latitude',
+  'longitude',
+  'filterReady',
   'image',
   'imageUrl',
+  'amenities',
 ] as const
 
 export type CafeListItemDto = Pick<Cafe, 'id' | 'name' | 'slug'> &
@@ -36,10 +40,14 @@ export type CafeListItemDto = Pick<Cafe, 'id' | 'name' | 'slug'> &
       | 'cost'
       | 'image'
       | 'imageUrl'
+      | 'latitude'
+      | 'longitude'
+      | 'filterReady'
       | 'municipality'
       | 'notes'
       | 'rate'
       | 'zone'
+      | 'amenities'
     >
   >
 
