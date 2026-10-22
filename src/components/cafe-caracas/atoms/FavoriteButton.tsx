@@ -10,11 +10,13 @@ import {
 type Props = {
   cafeSlug: string
   cafeName: string
+  className?: string
 }
 
 export const FavoriteButton: React.FC<Props> = ({
   cafeSlug,
   cafeName,
+  className,
 }) => {
   const [favorite, setFavorite] = useState(false)
 
@@ -51,7 +53,9 @@ export const FavoriteButton: React.FC<Props> = ({
           : `Agregar ${cafeName} a favoritos`
       }
       aria-pressed={favorite}
-      className={`absolute right-3 top-3 z-20 grid h-10 w-10 place-items-center rounded-full border border-white/70 backdrop-blur-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cc-olive focus-visible:ring-offset-2 ${
+      className={`${
+        className ?? 'absolute right-3 top-3 z-20'
+      } grid h-10 w-10 place-items-center rounded-full border border-white/70 backdrop-blur-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cc-olive focus-visible:ring-offset-2 ${
         favorite
           ? 'scale-105 bg-cc-olive text-white'
           : 'bg-white/90 text-cc-olive hover:scale-105 hover:bg-white'
